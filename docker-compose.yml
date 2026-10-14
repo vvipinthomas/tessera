@@ -1,0 +1,26 @@
+# Tessera on one machine. Start:  docker compose up -d --build
+# First run prints a one-time setup code:  docker compose logs tessera | grep "Setup code"
+services:
+  tessera:
+    build: .
+    image: ghcr.io/vvipinthomas/tessera:1.5.0
+    ports:
+      - "8710:8710"
+    volumes:
+      - tessera-data:/data
+    environment:
+      # Set to true when people reach Tessera over HTTPS (see deploy/https or deploy/cloudflare)
+      TESSERA_SECURE_COOKIES: "false"
+      TESSERA_TIMEZONE: "UTC"
+      # TESSERA_BASE_URL: "https://tessera.example.com"
+      # TESSERA_MASTER_KEY: "<base64 32-byte key; otherwise generated into /data/master.key>"
+      # TESSERA_IMPORT_DIRS: "/imports"
+    restart: unless-stopped
+
+  # Optional: a local model for fully offline AI agents (Admin -> AI providers -> Ollama, http://ollama:11434/v1)
+  # ollama:
+  #   image: ollama/ollama:0.12.6
+  #   volumes: [ "ollama:/root/.ollama" ]
+
+volumes:
+  tessera-data:

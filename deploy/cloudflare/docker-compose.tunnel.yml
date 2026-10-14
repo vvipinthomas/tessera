@@ -1,0 +1,20 @@
+# Tessera published through a Cloudflare Tunnel: no inbound ports, TLS at Cloudflare's edge.
+# 1. Cloudflare dashboard -> Zero Trust -> Networks -> Tunnels -> Create a tunnel (cloudflared). Copy its token.
+# 2. Add a public hostname on the tunnel: tessera.example.com -> Service: http://tessera:8710
+# 3. TUNNEL_TOKEN=... TESSERA_DOMAIN=tessera.example.com \
+#      docker compose -f docker-compose.yml -f deploy/cloudflare/docker-compose.tunnel.yml up -d --build
+services:
+  tessera:
+    ports: !reset []
+    expose: ["8710"]
+    environment:
+      TESSERA_SECURE_COOKIES: "true"
+      TESSERA_BASE_URL: "https://${TESSERA_DOMAIN:?set TESSERA_DOMAIN}"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN:?set TUNNEL_TOKEN from the Cloudflare dashboard}"
+    depends_on: [tessera]

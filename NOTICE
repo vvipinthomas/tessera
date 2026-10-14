@@ -1,0 +1,13 @@
+Tessera
+Copyright 2026 Vipin Thomas and Tessera contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product bundles the following fonts, licensed under the SIL Open Font License, Version 1.1:
+  - Instrument Sans, Copyright 2022 The Instrument Sans Project Authors
+    (tessera/static/fonts/OFL-InstrumentSans.txt)
+  - IBM Plex Mono, Copyright 2017 IBM Corp.
+    (tessera/static/fonts/OFL-IBMPlexMono.txt)
+
+The Kafka test broker built by tests/kafka_broker/build.sh is franz-go's kfake (BSD 3-Clause), patched as described
+in tests/kafka_broker/kfake.patch. It is used only by the test suite and is not distributed with Tessera.

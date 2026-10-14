@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tessera Data Platform</title>
+<meta name="description" content="Free, open-source, self-hosted data platform: pipelines, quality, privacy, dashboards, executive briefs with forecasts, AI agents and an MCP server.">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/landing.css">
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="#top"><span class="tiles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Tessera</a>
+  <nav aria-label="Page"><a href="#jobs">Platform</a><a href="#standout">Why Tessera</a><a href="#connectors">Connectors</a><a href="#install">Install</a><a class="btn primary" href="/app">Open Tessera</a></nav>
+</div></header>
+
+<main id="top">
+<div class="wrap hero">
+  <div class="copy">
+    <span class="eyebrow">Free · self-hosted · your data never leaves your network</span>
+    <h1>Trusted data before it reaches a dashboard or a model.</h1>
+    <p class="lede">Tessera connects your sources, runs pipelines, tests every column and masks personal data. Business users build reports by pointing and clicking, leaders get an executive brief with forecasts and target likelihood, and everyone can ask AI agents questions, all within their own permissions. It installs in minutes on a laptop or a server.</p>
+    <div class="ctas"><a class="btn primary" href="#install">Install free</a><a class="btn" href="/app">Open your Tessera</a></div>
+    <p class="small muted">The mosaic is a simulated scan of an order feed, drawn the way Tessera reports quality: each tile is one column across a slice of rows. Green passes every rule, amber has a few failing values, red is failing.</p>
+  </div>
+  <figure class="mosaic">
+    <canvas id="mosaic" width="960" height="560" aria-label="Quality mosaic of the sample dataset"></canvas>
+    <figcaption><span id="mosaic-cap">Scanning…</span><span class="legend"><span><i style="background:var(--ok)"></i>clean</span><span><i style="background:var(--warn)"></i>issues</span><span><i style="background:var(--bad)"></i>failing</span></span></figcaption>
+  </figure>
+</div>
+
+<section id="jobs"><div class="wrap">
+  <div class="head"><span class="eyebrow">One place</span><h2>Every data job, from source to boardroom</h2>
+    <p class="lede">Engineers connect, transform, test and protect data. Everyone else explores it, builds dashboards, gets reports by email and asks questions in plain English, using the same governed definitions.</p></div>
+  <div class="jobs">
+    <article><span class="k">Connect</span><h3>Sources</h3><ul><li>PostgreSQL, SQL Server and Fabric Warehouse, Snowflake, BigQuery, Databricks, MongoDB, Elasticsearch, Delta Lake, Iceberg, S3, SFTP, REST APIs, files</li><li>Incremental loads with watermarks</li></ul></article>
+    <article><span class="k">Stream</span><h3>Live sources</h3><ul><li>Kafka, Confluent, Redpanda, Event Hubs, Kinesis, MQTT and HTTP push</li><li>Saved positions, no loss on restart, live dashboards</li></ul></article>
+    <article><span class="k">Orchestrate</span><h3>Pipelines</h3><ul><li>Dependency graphs, retries, cron, webhooks</li><li>Triggered from Airflow, ADF, Dagster or CI</li></ul></article>
+    <article><span class="k">Shape</span><h3>Visual transforms</h3><ul><li>Filter, dedupe, join, cast, aggregate by pointing and clicking</li><li>Readable SQL generated for review</li></ul></article>
+    <article><span class="k">Test</span><h3>Data quality</h3><ul><li>Nine rule types, suggested from the data</li><li>Gates that stop bad data downstream</li></ul></article>
+    <article><span class="k">Protect</span><h3>Privacy and access</h3><ul><li>PII detection and masking on publish</li><li>Row-level security by user attribute</li></ul></article>
+    <article><span class="k">Define</span><h3>Semantic models</h3><ul><li>Revenue, Orders, Refund rate defined once</li><li>Certified models everyone can trust</li></ul></article>
+    <article><span class="k">Explore</span><h3>Ask in plain English</h3><ul><li>“Top 5 provinces by sales last quarter” becomes a governed chart, offline</li><li>Fifteen visuals, forecasts and anomaly flags</li></ul></article>
+    <article><span class="k">Present</span><h3>Interactive dashboards</h3><ul><li>Slicers, date ranges, cross-filtering, drill-down</li><li>Drag-and-drop designer, insights, deep dives, forecasts</li><li>Share or embed with expiring, filter-locked links</li></ul></article>
+    <article><span class="k">Distribute</span><h3>Subscriptions and alerts</h3><ul><li>Scheduled email with Excel attachments</li><li>Alerts on measures, quality, freshness and failures</li></ul></article>
+    <article><span class="k">Assist</span><h3>AI agents</h3><ul><li>Analyst, incident responder, modeler and more</li><li>Every figure checked against the data it came from</li></ul></article>
+    <article><span class="k">Connect AI</span><h3>MCP server</h3><ul><li>Governed data for Claude, IDEs and your own agents</li><li>Same permissions, masking and audit as the app</li></ul></article>
+    <article><span class="k">Govern</span><h3>Catalog and glossary</h3><ul><li>Endorsement, domains, business terms, lineage</li><li>AI readiness score per dataset</li></ul></article>
+    <article><span class="k">Operate</span><h3>Monitor and deploy</h3><ul><li>Monitoring hub for runs, alerts and queries</li><li>SSO, SCIM, workspaces, metrics, backups, audit export</li></ul></article>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="head"><span class="eyebrow">How data moves</span><h2>Three zones, enforced by the engine</h2>
+    <p class="lede">The SQL engine cannot read files, open network connections or attach other databases. Data enters only through connectors, and people without the engineer role can only query the serving zone.</p></div>
+  <div class="zones">
+    <div class="zone"><code>raw</code><h3>As loaded</h3><p class="small muted">Exactly what the source sent. Engineers only.</p></div>
+    <div class="arrow">transform →<br>quality gate</div>
+    <div class="zone"><code>curated</code><h3>Cleaned and joined</h3><p class="small muted">SQL transforms with recorded lineage. Engineers only.</p></div>
+    <div class="arrow">PII scan →<br>publish</div>
+    <div class="zone serving"><code>serving</code><h3>Masked and shared</h3><p class="small muted">What analysts, viewers, dashboards and AI agents use.</p></div>
+  </div>
+</div></section>
+
+<section id="standout"><div class="wrap">
+  <div class="head"><span class="eyebrow">Why teams choose it</span><h2>Answers leadership can act on, from data you can trust</h2>
+    <p class="lede">Most tools stop at the chart. Tessera tells you where the year will land, how sure that is, what moved the numbers, and whether the data underneath passed its checks.</p></div>
+  <div class="standout">
+    <article class="feature lead">
+      <span class="k">Executive brief</span>
+      <h3>Where the year will land, and how likely the target is</h3>
+      <p>Every dashboard gets a one-click leadership view: year over year, year to date, momentum, a full-year forecast with its likely range, and the chance of hitting each target. Drag the what-if slider to see the landing move.</p>
+      <div class="landdemo" aria-hidden="true">
+        <div class="ld-top"><span class="ld-k">2026 full-year forecast</span><span class="ld-chip">At risk · 38% likely</span></div>
+        <div class="ld-val">$423,876 <span>+14.3% vs last year</span></div>
+        <div class="ld-bar"><i class="a" style="width:62%"></i><i class="f" style="left:62%;width:28%"></i><b style="left:91%"></b></div>
+        <div class="ld-leg"><span><i class="a"></i>actual</span><span><i class="f"></i>forecast</span><span><i class="t"></i>target</span></div>
+      </div>
+      <p class="small muted">Illustration from the bundled sample data.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Forecasts with a track record</span>
+      <h3>The method is chosen by tested accuracy, and the error is shown</h3>
+      <p>Tessera tries six methods, including seasonal Holt-Winters, on your most recent history and keeps the one that would have been most accurate. Each forecast states its method and how far off it was.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Explain any change</span>
+      <h3>From “revenue fell” to “store sales in Quebec fell” in one click</h3>
+      <p>Split any change across every dimension, drill down a decomposition tree where Tessera picks the split that stands out, and see trending segments ranked by momentum.</p>
+    </article>
+    <article class="feature">
+      <span class="k">AI that shows its work</span>
+      <h3>Every figure in an AI answer is checked against the data</h3>
+      <p>Agents use governed measures first. Numbers that did not come from a query are flagged, and AI summaries are written only from numbered facts they must cite. Personal data is redacted before anything reaches a model.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Built-in MCP server</span>
+      <h3>Your governed data in Claude, your IDE and your own agents</h3>
+      <p>26 tools, datacards as resources and ready-made prompts, with the same permissions, row-level security, masking and audit as the app. Read-only unless an admin allows writes.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Trust built in</span>
+      <h3>Quality, privacy and access enforced by the engine</h3>
+      <p>Quality gates stop bad data before publishing, personal data is masked on the way out, and row-level security follows a user into every dashboard, export, forecast and AI answer.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Ask in plain English</span>
+      <h3>Questions become governed charts, no AI provider needed</h3>
+      <p>Type “monthly revenue in BC since March” in Explore or the search bar. Tessera shows how it read the question, lists any word it did not understand, and uses certified definitions and glossary synonyms.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Works with what you have</span>
+      <h3>Power BI, Excel and Tableau read governed data directly</h3>
+      <p>An OData feed serves published datasets and saved reports with masking and row-level security intact. Pipelines deliver to Snowflake, BigQuery, Databricks, Fabric or a Delta lake, send OpenLineage to Purview or DataHub, and import dbt docs and tests.</p>
+    </article>
+    <article class="feature">
+      <span class="k">Yours to run</span>
+      <h3>Free and open source under Apache 2.0, with nothing held back</h3>
+      <p>SSO, SCIM provisioning, workspaces, sharing, audit export, metrics and backups are in the free product. Install it on a laptop, a server or as a container in minutes, start in demo mode with a guided tour, and switch to your own data in one click. Your data never leaves your network.</p>
+    </article>
+  </div>
+  <p class="small muted">Tessera runs on a single server and suits team and department workloads up to hundreds of gigabytes.</p>
+</div></section>
+
+<section id="connectors"><div class="wrap">
+  <div class="head"><span class="eyebrow">Connectors</span><h2 id="conn-title">Sources and integrations</h2>
+    <p class="lede">Verified connectors run in Tessera's automated test suite against real services. Driver connectors use each vendor's standard driver. SaaS apps connect through the REST connector.</p></div>
+  <div class="conn" id="conn-list"></div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <div class="head"><span class="eyebrow">Free, on your machine</span><h2>Install in two minutes</h2></div>
+  <div class="install">
+    <div><h3>With Python 3.11 or newer</h3>
+<pre>git clone https://github.com/vvipinthomas/tessera.git
+cd tessera && pip install -e .
+tessera serve
+# open http://127.0.0.1:8710</pre>
+      <p class="small muted">The console prints a one-time setup code. Enter it in the browser to create the first admin, optionally with the sample retail workspace.</p></div>
+    <div><h3>With Docker</h3>
+<pre>docker compose up -d --build
+docker compose logs tessera | grep "Setup code"
+# open http://localhost:8710</pre>
+      <p class="small muted">Data lives in one folder: the metadata database, the DuckDB warehouse, uploads, exports and the encryption key. Back it up like any other folder.</p></div>
+  </div>
+  <div class="sec">
+    <div><h3>Encrypted secrets</h3><p class="small muted">Connection passwords, tokens and model keys are sealed with AES-256-GCM and never returned by the API.</p></div>
+    <div><h3>Hardened sign-in</h3><p class="small muted">scrypt password hashing, HttpOnly SameSite cookies, CSRF checks, lockout after five failures, OIDC with PKCE.</p></div>
+    <div><h3>Locked-down engine</h3><p class="small muted">Parser-checked read-only SQL, no file or network access from queries, query timeouts and row limits.</p></div>
+  </div>
+</div></section>
+</main>
+<footer><div class="wrap">Tessera 1.5 by Vantoras. Apache 2.0. Data quality, privacy, streaming, pipelines, analytics, executive briefs and AI agents on your own hardware.</div></footer>
+<script src="/static/landing.js"></script>
+</body>
+</html>

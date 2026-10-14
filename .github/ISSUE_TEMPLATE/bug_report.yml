@@ -1,0 +1,37 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for reporting. Security problems go to the address in SECURITY.md, not here."
+  - type: input
+    id: version
+    attributes:
+      label: Tessera version
+      description: Output of `tessera version`, or the image tag
+      placeholder: "1.5.0"
+    validations: {required: true}
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run it?
+      options: [pip on Linux, pip on macOS, pip on Windows, Docker Compose, AWS template, Cloudflare Tunnel, Other]
+    validations: {required: true}
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      description: Steps to reproduce, as small as possible. Demo data is ideal.
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Server log lines around the error. Remove secrets and personal data.
+      render: text

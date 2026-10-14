@@ -1,0 +1,13 @@
+:root {
+  --md-primary-fg-color: #0C6B5B;
+  --md-primary-fg-color--light: #13856F;
+  --md-primary-fg-color--dark: #095A4C;
+  --md-accent-fg-color: #0C6B5B;
+  --md-text-font: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --md-code-font: "IBM Plex Mono", ui-monospace, monospace;
+}
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #17201D;
+  --md-accent-fg-color: #4FC3A7;
+  --md-default-bg-color: #101614;
+}

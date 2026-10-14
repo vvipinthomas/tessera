@@ -1,0 +1,13 @@
+{$TESSERA_DOMAIN} {
+	encode zstd gzip
+	# uploads of large files (Tessera's own limit is TESSERA_MAX_UPLOAD_MB, default 512)
+	request_body {
+		max_size 600MB
+	}
+	reverse_proxy tessera:8710 {
+		# long-running requests such as large exports and MCP sessions
+		transport http {
+			read_timeout 10m
+		}
+	}
+}

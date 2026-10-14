@@ -1,0 +1,26 @@
+
+--- 00_produce.go	2026-10-14 04:01:40.662209770 +0000
++++ 00_produce.go	2026-10-14 04:03:38.028488247 +0000
+@@ -110,10 +110,7 @@
+ 				donep(rt.Topic, rp, kerr.CorruptMessage.Code)
+ 				continue
+ 			}
+-			if b.PartitionLeaderEpoch != -1 {
+-				donep(rt.Topic, rp, kerr.CorruptMessage.Code)
+-				continue
+-			}
++			// Real brokers overwrite the leader epoch; librdkafka sends 0 rather than -1.
+ 			if b.Magic != 2 {
+ 				donep(rt.Topic, rp, kerr.CorruptMessage.Code)
+ 				continue
+
+--- 01_fetch.go	2026-10-14 04:01:40.662378710 +0000
++++ 01_fetch.go	2026-10-14 04:03:06.485299594 +0000
+@@ -129,6 +129,7 @@
+ 		sp := kmsg.NewFetchResponseTopicPartition()
+ 		sp.Partition = p
+ 		sp.ErrorCode = errCode
++		sp.RecordBatches = []byte{} // real brokers send an empty, not null, record set
+ 		st := donet(t, id, 0)
+ 		st.Partitions = append(st.Partitions, sp)
+ 		return &st.Partitions[len(st.Partitions)-1]

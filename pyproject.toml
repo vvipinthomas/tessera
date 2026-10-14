@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tessera"
+version = "1.5.0"
+description = "Open-source, self-hosted data platform: connectors and streaming, pipelines, data quality, privacy, semantic models, dashboards, executive briefs, AI agents and an MCP server."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Vipin Thomas" }]
+requires-python = ">=3.11"
+keywords = ["data-platform", "data-quality", "duckdb", "business-intelligence", "dashboards", "etl", "streaming", "kafka",
+            "semantic-layer", "data-governance", "mcp", "ai-agents", "self-hosted", "power-bi-alternative"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "python-multipart>=0.0.9",
+  "duckdb>=1.1",
+  "pyarrow>=15",
+  "pandas>=2.1",
+  "openpyxl>=3.1",
+  "sqlalchemy>=2.0",
+  "httpx>=0.27",
+  "croniter>=2.0",
+  "cryptography>=42",
+  "pyjwt[crypto]>=2.15",  # 2.14 and older have published advisories
+  "psycopg[binary]>=3.1",
+  "pytz>=2024.1",  # DuckDB returns TIMESTAMPTZ values through pytz; pandas 3 no longer installs it
+]
+
+[project.urls]
+Homepage = "https://github.com/vvipinthomas/tessera"
+Documentation = "https://github.com/vvipinthomas/tessera/tree/main/docs"
+Changelog = "https://github.com/vvipinthomas/tessera/blob/main/CHANGELOG.md"
+Issues = "https://github.com/vvipinthomas/tessera/issues"
+
+[project.optional-dependencies]
+kafka = ["confluent-kafka>=2.4"]
+mqtt = ["paho-mqtt>=2.0"]
+kinesis = ["boto3>=1.34"]
+iceberg = ["pyiceberg[pyarrow]>=0.7"]
+sftp = ["paramiko>=3.4"]
+mysql = ["pymysql>=1.1"]
+s3 = ["boto3>=1.34"]
+mongodb = ["pymongo>=4.6"]
+delta = ["deltalake>=0.18"]
+sqlserver = ["pyodbc>=5"]
+oracle = ["oracledb>=2"]
+snowflake = ["snowflake-sqlalchemy>=1.5"]
+bigquery = ["sqlalchemy-bigquery>=1.9"]
+databricks = ["databricks-sqlalchemy>=2"]
+trino = ["trino[sqlalchemy]>=0.328"]
+clickhouse = ["clickhouse-sqlalchemy>=0.3"]
+all = ["pymysql>=1.1", "boto3>=1.34", "oracledb>=2", "trino[sqlalchemy]>=0.328", "pymongo>=4.6", "deltalake>=0.18",
+       "confluent-kafka>=2.4", "paho-mqtt>=2.0", "pyiceberg[pyarrow]>=0.7", "paramiko>=3.4"]
+dev = ["pytest>=8", "moto[s3,kinesis]>=5", "playwright>=1.44", "aiosmtpd>=1.4", "mongomock>=4.1", "pymongo>=4.6", "deltalake>=0.18",
+       "confluent-kafka>=2.4", "paho-mqtt>=2.0", "amqtt>=0.11", "pyiceberg[pyarrow,sql-sqlite]>=0.7", "paramiko>=3.4", "asyncssh>=2.14",
+       "bandit>=1.7", "pip-audit>=2.7", "ruff>=0.6"]
+
+[project.scripts]
+tessera = "tessera.cli:main"
+
+[tool.setuptools]
+packages = ["tessera"]
+
+[tool.setuptools.package-data]
+tessera = ["static/*", "static/fonts/*"]
+
+[tool.bandit]
+# B608: SQL is built only from quoted identifiers (qi) or code constants; every value is a bound parameter, and
+#       user SQL goes through the parser-based read-only guard. Reviewed for 1.5.0; see SECURITY.md.
+# B110: best-effort cleanup (closing cursors, scroll contexts) intentionally ignores errors.
+# B311: random is used only to generate the demo dataset, never for secrets.
+skips = ["B608", "B110", "B311"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E731", "B008", "B904", "E501", "B905", "B007"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B017", "B023", "F841"]

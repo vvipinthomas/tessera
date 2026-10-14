@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Tessera on one EC2 instance: Docker, a separate encrypted EBS data volume (kept when the stack is deleted),
+  HTTPS through Caddy when a domain is given, nightly consistent backups to a private, versioned S3 bucket,
+  and shell access through Systems Manager (no SSH port).
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: m7i.large
+    AllowedValues: [t3.large, t3.xlarge, m7i.large, m7i.xlarge, m7i.2xlarge, r7i.large, r7i.xlarge, r7i.2xlarge]
+    Description: 8 GB RAM (large) suits a team; choose r7i for large datasets. DuckDB uses memory first, then spills to disk.
+  DataVolumeGiB:
+    Type: Number
+    Default: 100
+    MinValue: 20
+    MaxValue: 16000
+    Description: Size of the data volume (warehouse, metadata, uploads, exports, local backups).
+  DomainName:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional, for example tessera.example.com. When set, Caddy serves HTTPS with a Let's Encrypt certificate:
+      after the stack is created, point the domain's DNS A record at the PublicIp output.
+  AllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: ^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$
+    Description: Who may reach the web ports. Narrow this to your office or VPN range where you can.
+  Version:
+    Type: String
+    Default: v1.5.0
+    Description: Git tag of Tessera to deploy.
+  RepoUrl:
+    Type: String
+    Default: https://github.com/vvipinthomas/tessera.git
+  BackupHourUtc:
+    Type: Number
+    Default: 9
+    MinValue: 0
+    MaxValue: 23
+    Description: Hour (UTC) of the nightly backup. Tessera is stopped for a few seconds while the archive is written.
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref DomainName, ""]]
+
+Resources:
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration: {Status: Enabled}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-backups
+            Status: Enabled
+            ExpirationInDays: 35
+            NoncurrentVersionExpiration: {NoncurrentDays: 7}
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BackupBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt BackupBucket.Arn, !Sub "${BackupBucket.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": "false"}}
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: tessera-backups
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:ListBucket]
+                Resource: [!GetAtt BackupBucket.Arn, !Sub "${BackupBucket.Arn}/*"]
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Tessera web access
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: !Ref AllowedCidr, Description: HTTPS}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0, Description: "Certificate challenge and redirect to HTTPS"}
+        - !If
+          - HasDomain
+          - !Ref AWS::NoValue
+          - {IpProtocol: tcp, FromPort: 8710, ToPort: 8710, CidrIp: !Ref AllowedCidr, Description: "Tessera over HTTP (no domain given)"}
+
+  DataVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      AvailabilityZone: !GetAtt Instance.AvailabilityZone
+      Size: !Ref DataVolumeGiB
+      VolumeType: gp3
+      Encrypted: true
+      Tags: [{Key: Name, Value: !Sub "${AWS::StackName}-data"}]
+
+  DataVolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Instance
+      VolumeId: !Ref DataVolume
+      Device: /dev/sdf
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!GetAtt WebSecurityGroup.GroupId]
+      MetadataOptions: {HttpTokens: required, HttpEndpoint: enabled}
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: {VolumeSize: 30, VolumeType: gp3, Encrypted: true}
+      Tags: [{Key: Name, Value: !Ref AWS::StackName}]
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euxo pipefail
+            exec > >(tee /var/log/tessera-setup.log) 2>&1
+            dnf install -y docker git cronie
+            systemctl enable --now docker crond
+            mkdir -p /usr/local/lib/docker/cli-plugins
+            curl -fsSL "https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+            # wait for the data volume, then format it once and mount it
+            VOL_SERIAL=""
+            for i in $(seq 1 120); do
+              DEV=$(lsblk -dno NAME,SERIAL | awk '$2 ~ /^vol/ && $1 != "nvme0n1" {print "/dev/"$1; exit}')
+              [ -n "$DEV" ] && break; sleep 5
+            done
+            if ! blkid "$DEV"; then mkfs.xfs "$DEV"; fi
+            mkdir -p /srv/tessera
+            UUID=$(blkid -s UUID -o value "$DEV")
+            grep -q "$UUID" /etc/fstab || echo "UUID=$UUID /srv/tessera xfs defaults,nofail 0 2" >> /etc/fstab
+            mount -a
+            mkdir -p /srv/tessera/data/backups
+            chown -R 10001:10001 /srv/tessera/data
+
+            git clone --depth 1 --branch "${Version}" "${RepoUrl}" /opt/tessera
+            cd /opt/tessera
+            cat > docker-compose.override.yml <<'YAML'
+            services:
+              tessera:
+                volumes: !override
+                  - /srv/tessera/data:/data
+            YAML
+            DOMAIN="${DomainName}"
+            if [ -n "$DOMAIN" ]; then
+              echo "TESSERA_DOMAIN=$DOMAIN" > .env
+              COMPOSE="docker compose -f docker-compose.yml -f docker-compose.override.yml -f deploy/https/docker-compose.https.yml"
+            else
+              COMPOSE="docker compose -f docker-compose.yml -f docker-compose.override.yml"
+            fi
+            echo "$COMPOSE" > /opt/tessera/.compose-cmd
+            $COMPOSE up -d --build
+
+            install -m 0755 deploy/aws/backup-to-s3.sh /usr/local/bin/tessera-backup
+            echo "0 ${BackupHourUtc} * * * root /usr/local/bin/tessera-backup s3://${Bucket}/backups /opt/tessera >> /var/log/tessera-backup.log 2>&1" > /etc/cron.d/tessera-backup
+          - Bucket: !Ref BackupBucket
+
+  PublicIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Instance
+
+Outputs:
+  PublicIp:
+    Description: Point your domain's DNS A record here (when DomainName is set).
+    Value: !Ref PublicIp
+  Url:
+    Value: !If [HasDomain, !Sub "https://${DomainName}", !Sub "http://${PublicIp}:8710"]
+  SetupCode:
+    Description: Read the one-time setup code from the instance through Systems Manager.
+    Value: !Sub "aws ssm start-session --target ${Instance}  then: sudo cat /srv/tessera/data/setup-code.txt"
+  BackupBucket:
+    Value: !Ref BackupBucket

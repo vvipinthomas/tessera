@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use Tessera in research or a publication, please cite it as below."
+title: "Tessera: an open-source, self-hosted data platform"
+type: software
+authors:
+  - family-names: Thomas
+    given-names: Vipin
+version: 1.5.0
+date-released: 2026-10-14
+license: Apache-2.0
+repository-code: "https://github.com/vvipinthomas/tessera"
+keywords: [data platform, data quality, business intelligence, streaming, semantic layer, DuckDB, MCP]

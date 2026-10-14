@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Tessera data (never commit data folders or keys)
+tessera-data/
+dev-data/
+*.duckdb
+*.duckdb.wal
+master.key
+setup-code.txt
+tessera-backup-*.tar.gz
+
+# Test artefacts
+tests/kafka_broker/kfake
+ui-shots/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Deployment secrets
+.env
+docker-compose.override.yml
+site/
