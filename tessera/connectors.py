@@ -75,9 +75,14 @@ CONNECTOR_TYPES: dict[str, dict] = {
     "rest": {"label": "REST / JSON API", "category": "APIs", "verified": True,
              "description": "Any JSON API with page, offset, cursor or next-link pagination. Covers Salesforce, ServiceNow, Jira, Stripe, HubSpot, Zendesk, Shopify and most SaaS APIs.",
              "fields": [F("base_url", "Base URL", required=True, placeholder="https://api.example.com/v1"),
-                        F("auth", "Auth", type="select", options=["none", "bearer", "header", "basic", "query"]),
+                        F("auth", "Auth", type="select", options=["none", "bearer", "header", "basic", "query",
+                                                                  "oauth2_client_credentials", "oauth2_refresh_token"]),
                         F("header_name", "Header or query name", placeholder="X-API-Key"),
                         F("username", "Basic auth user"), F("token", "Token, key or password", secret=True),
+                        F("token_url", "OAuth token URL", placeholder="https://login.example.com/oauth2/token"),
+                        F("client_id", "OAuth client ID"), F("client_secret", "OAuth client secret", secret=True),
+                        F("scope", "OAuth scope", placeholder="https://graph.microsoft.com/.default"),
+                        F("refresh_token", "OAuth refresh token", secret=True),
                         F("headers", "Extra headers (JSON)", type="textarea")],
              "source_hint": {"path": "/orders", "records_path": "data", "pagination": {"type": "page", "page_param": "page", "max_pages": 50}}},
     "s3": {"label": "Amazon S3 / MinIO / S3-compatible", "category": "Object storage", "verified": True, "driver": "boto3", "pip": "boto3",
@@ -106,15 +111,13 @@ CONNECTOR_TYPES: dict[str, dict] = {
 
 # Destinations reachable through generic connectors. Shown in the catalog so people know the route.
 VIA_GENERIC = [
-    ("Salesforce", "rest"), ("ServiceNow", "rest"), ("Jira", "rest"), ("Stripe", "rest"), ("HubSpot", "rest"),
-    ("Zendesk", "rest"), ("Shopify", "rest"), ("Workday (RaaS)", "rest"), ("Dynamics 365 (Web API)", "rest"),
-    ("SharePoint lists (Graph)", "rest"), ("GitHub", "rest"), ("GitLab", "rest"),
+    ("Workday (RaaS)", "rest"), ("GitLab", "rest"),
     ("Google Cloud Storage (S3 interoperability)", "s3"), ("Cloudflare R2", "s3"), ("Wasabi", "s3"),
     ("Cloudflare R2 Data Catalog (Iceberg)", "iceberg"), ("Delta tables on Cloudflare R2", "delta"),
     ("Microsoft Fabric Warehouse SQL endpoint", "sqlserver"), ("Azure Synapse", "sqlserver"),
     ("IBM Db2", "sqlalchemy"), ("SAP HANA", "sqlalchemy"), ("Teradata", "sqlalchemy"), ("Vertica", "sqlalchemy"),
 ]
-ROADMAP = ["Google Pub/Sub", "Apache Pulsar", "Avro and Protobuf payloads with a schema registry"]
+ROADMAP = ["Mirroring for SQL Server, MySQL and MongoDB", "Google Pub/Sub", "Apache Pulsar", "Avro and Protobuf payloads with a schema registry"]
 
 
 def catalog() -> list[dict]:
@@ -240,6 +243,8 @@ def guard_url(url: str, block_private: bool) -> None:
 def dig(obj: Any, path: str | None):
     if not path:
         return obj
+    if isinstance(obj, dict) and path in obj:  # keys that contain dots, such as "@odata.nextLink"
+        return obj[path]
     for part in path.split("."):
         if obj is None:
             return None
@@ -371,6 +376,27 @@ class SQLConnector(Connector):
         finally:
             eng.dispose()
 
+    def describe(self, names: list[str]) -> dict[str, dict]:
+        """Columns and primary key of each table, to plan bulk copies. Unknown tables are skipped."""
+        from sqlalchemy import inspect
+        eng = self.engine()
+        out = {}
+        try:
+            insp = inspect(eng)
+            for n in names:
+                sc, _, name = n.rpartition(".")
+                try:
+                    cols = [{"name": c["name"], "type": str(c["type"]).lower()} for c in insp.get_columns(name, schema=sc or None)]
+                    pk = (insp.get_pk_constraint(name, schema=sc or None) or {}).get("constrained_columns") or []
+                except Exception:  # noqa: BLE001  # nosec B112 - a missing or unreadable table is reported by the copy itself
+                    continue
+                out[n] = {"columns": cols, "primary_key": pk}
+            return out
+        except Exception as e:  # noqa: BLE001
+            raise ConnectorError(str(e).split("\n")[0]) from None
+        finally:
+            eng.dispose()
+
     def read(self, source: dict, watermark=None) -> pa.Table:
         import pandas as pd
         from sqlalchemy import bindparam, column, select, table, text
@@ -379,7 +405,7 @@ class SQLConnector(Connector):
         try:
             if source.get("table"):
                 parts = source["table"].split(".")
-                if len(parts) > 2 or not all(p.replace("_", "").replace("$", "").isalnum() for p in parts):
+                if len(parts) > 2 or not all(p.strip() and re.fullmatch(r"[\w$ #@-]{1,128}", p) for p in parts):
                     raise ConnectorError("Table must be 'table' or 'schema.table'.")
                 tbl = table(parts[-1], schema=parts[0] if len(parts) == 2 else None)
                 stmt = select(text("*")).select_from(tbl)
@@ -413,7 +439,79 @@ class SQLConnector(Connector):
             eng.dispose()
 
 
+def format_since(watermark, fmt: str = "iso", lookback_seconds: int = 0) -> str:
+    """Turn the last loaded change time into the literal an API's filter expects, a little earlier (lookback) so
+    records changed in the same second or reported in another time zone are not missed; merges remove repeats."""
+    from datetime import date, datetime, timedelta, timezone
+    w = watermark
+    if isinstance(w, str):
+        try:
+            w = datetime.fromisoformat(w.replace("Z", "+00:00"))
+        except ValueError:
+            return w
+    elif isinstance(w, (int, float)) and not isinstance(w, bool):
+        w = datetime.fromtimestamp(w / 1000 if w > 1e11 else w, timezone.utc)
+    if isinstance(w, date) and not isinstance(w, datetime):
+        w = datetime(w.year, w.month, w.day, tzinfo=timezone.utc)
+    if not isinstance(w, datetime):
+        return str(watermark)
+    w = (w if w.tzinfo else w.replace(tzinfo=timezone.utc)).astimezone(timezone.utc) - timedelta(seconds=lookback_seconds)
+    if fmt == "jira":
+        return w.strftime("%Y/%m/%d %H:%M")
+    if fmt == "servicenow":
+        return w.strftime("'%Y-%m-%d','%H:%M:%S'")
+    return w.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class OAuthError(ConnectorError):
+    pass
+
+
 class RestConnector(Connector):
+    """JSON APIs. Auth: none, bearer, header, query, basic, OAuth 2 client credentials or refresh token.
+    Pagination: page, offset, cursor (from a response field or the last record), next_url, link_header."""
+
+    _token: str | None = None
+    _token_exp: float = 0.0
+
+    def oauth_token(self, force: bool = False) -> str:
+        import time
+
+        import httpx
+        if self._token and not force and time.time() < self._token_exp - 60:
+            return self._token
+        c, s = self.config, self.secrets
+        url = (c.get("token_url") or "").strip()
+        if not url:
+            raise OAuthError("Set the OAuth token URL.")
+        guard_url(url, self.settings.block_private_http)
+        if c.get("auth") == "oauth2_refresh_token":
+            data = {"grant_type": "refresh_token", "refresh_token": s.get("refresh_token", "")}
+        else:
+            data = {"grant_type": "client_credentials"}
+        if c.get("scope"):
+            data["scope"] = c["scope"]
+        data["client_id"] = c.get("client_id", "")
+        data["client_secret"] = s.get("client_secret", "")
+        factory = type(self).http_factory or (lambda: httpx.Client(timeout=30))
+        with factory() as cl:
+            r = cl.post(url, data=data, headers={"Accept": "application/json"})
+        if r.status_code >= 400:
+            try:
+                err = r.json()
+                msg = err.get("error_description") or err.get("error") or r.text[:200]
+            except ValueError:
+                msg = r.text[:200]
+            raise OAuthError(f"Sign-in to the API failed (HTTP {r.status_code}): {msg}")
+        body = r.json()
+        tok = body.get("access_token")
+        if not tok:
+            raise OAuthError("The token endpoint did not return an access_token.")
+        self._token, self._token_exp = tok, time.time() + float(body.get("expires_in") or 3600)
+        return tok
+
+    http_factory = None  # tests inject a transport
+
     def client(self):
         import httpx
         c, s = self.config, self.secrets
@@ -433,11 +531,18 @@ class RestConnector(Connector):
             params[c.get("header_name") or "api_key"] = s.get("token", "")
         elif mode == "basic":
             auth = (c.get("username", ""), s.get("token", ""))
+        elif mode in ("oauth2_client_credentials", "oauth2_refresh_token"):
+            headers["Authorization"] = f"Bearer {self.oauth_token()}"
+        if type(self).http_factory:
+            return type(self).http_factory(headers=headers, params=params, auth=auth)
         return httpx.Client(headers=headers, params=params, auth=auth, timeout=30, follow_redirects=False)
 
     def _get(self, cl, url, params=None):
         guard_url(url, self.settings.block_private_http)
         r = cl.get(url, params=params)
+        if r.status_code == 401 and self.config.get("auth", "").startswith("oauth2"):
+            cl.headers["Authorization"] = f"Bearer {self.oauth_token(force=True)}"  # expired early or revoked: sign in again once
+            r = cl.get(url, params=params)
         if r.status_code >= 400:
             raise ConnectorError(f"HTTP {r.status_code} from {urlparse(url).path}: {r.text[:200]}")
         try:
@@ -446,13 +551,29 @@ class RestConnector(Connector):
             raise ConnectorError("Response is not JSON.") from None
 
     def test(self) -> str:
+        from . import saas
+        tpl = saas.TEMPLATES.get(self.config.get("template") or "")
         with self.client() as cl:
-            url = self.config["base_url"].rstrip("/") + "/" + (self.config.get("health_path") or "").lstrip("/")
+            path = self.config.get("health_path") or (tpl or {}).get("health_path") or ""
+            url = self.config["base_url"].rstrip("/") + "/" + path.lstrip("/")
             guard_url(url, self.settings.block_private_http)
             r = cl.get(url)
-            return f"Reached API, HTTP {r.status_code}."
+            if r.status_code in (401, 403):
+                raise ConnectorError(f"The API refused the credentials (HTTP {r.status_code}).")
+            signed = " Signed in with OAuth." if self.config.get("auth", "").startswith("oauth2") else ""
+            return f"Reached {tpl['label'] if tpl else 'the API'}, HTTP {r.status_code}.{signed}"
+
+    def browse(self) -> list[dict]:
+        from . import saas
+        tpl = saas.TEMPLATES.get(self.config.get("template") or "")
+        if not tpl:
+            return []
+        return [{"name": o["name"], "label": o.get("label", o["name"]), "kind": "object"} for o in saas.objects(tpl, self.config)]
 
     def read(self, source: dict, watermark=None) -> pa.Table:
+        if source.get("object"):
+            from . import saas
+            source = saas.resolve(self.config, source)
         base = self.config["base_url"].rstrip("/")
         url = base + "/" + (source.get("path") or "").lstrip("/")
         pg = source.get("pagination") or {"type": "none"}
@@ -460,6 +581,10 @@ class RestConnector(Connector):
         params = dict(source.get("params") or {})
         if watermark is not None and source.get("cursor_param"):
             params[source["cursor_param"]] = watermark
+        if watermark is not None and source.get("since_params"):  # "changed since" filters, e.g. SOQL, OData, JQL
+            since = format_since(watermark, source.get("since_format", "iso"), int(source.get("lookback_seconds") or 0))
+            for k, v in source["since_params"].items():
+                params[k] = str(v).replace("%SINCE%", since)
         records: list = []
         with self.client() as cl:
             page = int(pg.get("start", 1))
@@ -483,6 +608,10 @@ class RestConnector(Connector):
                 records.extend(batch)
                 if ptype == "none" or not batch:
                     break
+                if pg.get("more_path") and not dig(data, pg["more_path"]):
+                    break  # e.g. Stripe has_more, Zendesk meta.has_more
+                if pg.get("last_path") and dig(data, pg["last_path"]):
+                    break  # e.g. Jira isLast
                 if ptype == "page":
                     page += 1
                 elif ptype == "offset":
@@ -498,7 +627,10 @@ class RestConnector(Connector):
                         break
                     next_url = nxt
                 elif ptype == "cursor":
-                    cur = dig(data, pg.get("cursor_path", "next_cursor"))
+                    if pg.get("cursor_from") == "last_record":  # e.g. Stripe starting_after=<last id>
+                        cur = batch[-1].get(pg.get("cursor_field", "id")) if isinstance(batch[-1], dict) else None
+                    else:
+                        cur = dig(data, pg.get("cursor_path", "next_cursor"))
                     if not cur:
                         break
                     params[pg.get("cursor_param", "cursor")] = cur

@@ -5,6 +5,9 @@ missing. Dates are deliberately absent: this is a volunteer project and quality 
 
 ## Next
 
+- **Mirroring for SQL Server, MySQL and MongoDB** (change tracking, binlog and change streams), like PostgreSQL today.
+- **Changes-only loads for HubSpot, Zendesk and Microsoft Graph** (search API, incremental exports, delta queries).
+- **More business applications**: QuickBooks, Xero, NetSuite, Workday, Google Analytics and Google Ads, Marketo.
 - **Schema registry payloads**: Avro and Protobuf for Kafka and Event Hubs streams.
 - **Google Pub/Sub and Apache Pulsar** streams.
 - **Amazon MSK IAM authentication** for Kafka streams.

@@ -68,7 +68,9 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
         if start_scheduler:
             orch.start()
             app.state.streams.resume_all()
+            app.state.mirrors.resume_all()
         yield
+        app.state.mirrors.shutdown()
         app.state.streams.shutdown()
         orch.stop()
         for hook in app.state.shutdown_hooks:  # for example a final backup on hosted installs
@@ -354,7 +356,9 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
     # ------------------------------------------------------------------ connections
     @app.get("/api/connectors")
     def connector_catalog():
-        return {"types": connectors.catalog(), "via_generic": [{"name": n, "via": v} for n, v in connectors.VIA_GENERIC], "roadmap": connectors.ROADMAP}
+        from . import saas
+        return {"types": connectors.catalog(), "via_generic": [{"name": n, "via": v} for n, v in connectors.VIA_GENERIC], "roadmap": connectors.ROADMAP,
+                "apps": [{"key": a["key"], "label": a["label"], "category": a["category"], "changes_only": bool(a["incremental"])} for a in saas.catalog()]}
 
     @app.get("/api/connections")
     def list_connections(u: dict = Depends(engineer)):
@@ -391,6 +395,8 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
     @app.delete("/api/connections/{cid}")
     def delete_connection(cid: int, request: Request, u: dict = Depends(engineer)):
         c = plat.connection(cid)
+        if store.one("SELECT id FROM mirrors WHERE connection_id=?", (cid,)):
+            raise HTTPException(409, "Stop this connection's mirrors first, so the database stops keeping change log for Tessera.")
         store.exec("DELETE FROM connections WHERE id=?", (cid,))
         audit(u, "connection.deleted", c["name"], None, request)
         return {"ok": True}
@@ -941,6 +947,8 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
     register_mcp(app, plat, user, need, audit)
     from .share import register as register_share
     register_share(app, plat, user, need, audit, STATIC)
+    from .connections_api import register as register_connections
+    register_connections(app, plat, user, need, audit, orch)
     from .interop import register as register_interop
     register_interop(app, plat, user, need, audit, orch)
     from .odata import register as register_odata

@@ -191,9 +191,42 @@ permissions, including row-level security.
    - **replace**: reload everything,
    - **append**: add rows,
    - **incremental**: add only rows whose **cursor column** (for example `updated_at`) is newer than last time.
+   - **merge**: give the **key column(s)** (for example `id`); rows with a key that already exists are updated, new
+     ones added. Add a cursor column to load only changed rows.
    For SFTP, use the cursor column `_source_modified` to load only new or changed files. For Iceberg, add a row filter
    or a snapshot id; for Delta, a version.
 4. **Upload file** on the Catalog page loads a CSV, Excel, JSON or Parquet file directly.
+
+### Connecting a business application
+
+**Connections → Connect an application**, then pick the application (Salesforce, Dynamics 365, Microsoft 365,
+HubSpot, Stripe, GitHub, Jira, Zendesk, ServiceNow, Shopify or Airtable). The form asks only for what is yours, such
+as your subdomain, tenant or key, and links to the vendor's instructions for creating it. **Save and test**, tick the
+objects and press **Load selected**. Objects marked **changes only** load just what changed on later runs. Open the
+pipeline it creates to put it on a schedule. Details for each application: [INTEGRATIONS.md](INTEGRATIONS.md#business-applications).
+
+### Copying many tables at once
+
+On a database, warehouse, lake or file connection, **Copy many tables → Choose tables**, tick them (or **Select all**),
+choose **Smart** and a schedule, and press **Copy selected**. Smart merges tables that have a primary key and a change
+column such as `updated_at`. It appends new rows for tables with only a change column, and fully copies the rest. The
+result lists what it detected for each table.
+
+### Mirroring a PostgreSQL database
+
+For tables that must stay current within seconds, open a PostgreSQL connection, **Mirror tables → Choose tables →
+Start mirroring**. Tessera takes a first copy, then follows every insert, update and delete from the database's
+change log. The database needs `wal_level = logical`, the user needs the REPLICATION attribute, and each table needs a
+primary key; see [INTEGRATIONS.md](INTEGRATIONS.md#mirroring-postgresql). Mirrors are listed on **Connections** with
+**Sync now**, **Pause** and **Stop**. Stop a mirror when you no longer need it, so the database stops keeping change
+log for it.
+
+### When a source changes its columns
+
+Every load compares the columns with the previous one. New columns are added and widened types are kept, so a
+decimal arriving in a whole-number column is never rounded. Removed columns are kept with empty values. The owner and
+admins get a notification that names the downstream tables to check. **Catalog → dataset → Schema history** shows
+every change.
 
 The connector catalog at the bottom of **Connections** shows which connectors are *verified* by Tessera's tests and
 which need a driver installed on the server.

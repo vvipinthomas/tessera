@@ -104,11 +104,15 @@ class Platform:
         c = self.connection(cid)
         return connectors.make(c["type"], c["config"], self.vault.decrypt(c["secrets"]), self.settings)
 
-    @staticmethod
-    def public_connection(c: dict) -> dict:
+    def public_connection(self, c: dict) -> dict:
+        """A connection without its secrets; only the names of the secret fields that are set."""
         t = connectors.CONNECTOR_TYPES.get(c["type"], {})
-        secret_keys = [f["key"] for f in t.get("fields", []) if f.get("secret")]
-        return {k: v for k, v in c.items() if k != "secrets"} | {"secret_fields_set": secret_keys if c.get("secrets") else []}
+        try:
+            saved = self.vault.decrypt(c["secrets"]) if c.get("secrets") else {}
+        except Exception:  # noqa: BLE001 - an unreadable secret is reported as not set
+            saved = {}
+        keys = [f["key"] for f in t.get("fields", []) if f.get("secret")]
+        return {k: v for k, v in c.items() if k != "secrets"} | {"secret_fields_set": [k for k in keys if saved.get(k)] + sorted(set(saved) - set(keys))}
 
     # ------------------------------------------------------------ datasets / catalog
     def dataset(self, schema: str, name: str, create: bool = False) -> dict | None:
@@ -156,24 +160,41 @@ class Platform:
         schema, name = split_fqn(target, "raw")
         if schema == "serving":
             raise QueryError("Ingest into raw or curated. Serving is written only by Publish.")
-        if mode not in ("replace", "append", "incremental"):
-            raise QueryError("Mode must be replace, append or incremental")
+        if mode not in ("replace", "append", "incremental", "merge"):
+            raise QueryError("Mode must be replace, append, incremental or merge")
         conn = self.connection(connection_id)
+        if source.get("object") and conn["type"] == "rest":
+            from . import saas  # application templates know which column shows a change and which field is the key
+            cur = source.get("cursor_column") or saas.default_cursor(conn["config"] or {}, source["object"])
+            if cur:
+                source = {**source, "cursor_column": cur}
+            if mode == "merge" and not source.get("key"):
+                source = {**source, "key": saas.default_key(conn["config"] or {}, source["object"])}
+        keys = [k.strip() for k in (source.get("key") or []) if str(k).strip()] if isinstance(source.get("key"), list) \
+            else [k.strip() for k in str(source.get("key") or "").split(",") if k.strip()]
+        if mode == "merge" and not keys:
+            raise QueryError("Merge loads need the key column(s) that identify a row, for example id.")
         cx = self.connector(connection_id)
         d = self.dataset(schema, name, create=True)
         meta = d.get("meta") or {}
-        watermark = meta.get("watermark") if mode == "incremental" else None
+        watermark = meta.get("watermark") if mode in ("incremental", "merge") else None
         if watermark is not None and meta.get("watermark_type") in ("timestamp", "date"):
             watermark = datetime.fromisoformat(watermark) if meta["watermark_type"] == "timestamp" else datetime.fromisoformat(watermark).date()
         if mode == "incremental" and not source.get("cursor_column"):
             raise QueryError("Incremental loads need a cursor_column (for example updated_at).")
-        table = cx.read(source, watermark)
+        read_source = {k: v for k, v in source.items() if k != "key"}
+        table = cx.read(read_source, watermark)
         loaded = 0
+        before = {c["name"]: c["type"] for c in self.wh.columns(schema, name)} if self.wh.exists(schema, name) else None
         if table.num_rows or mode == "replace":
             if table.num_columns == 0:
                 raise QueryError("Source returned no columns.")
-            loaded = self.wh.load_arrow(table, schema, name, "replace" if mode == "replace" else "append")
-        if mode == "incremental" and table.num_rows and source.get("cursor_column") in table.column_names:
+            loaded = self.wh.load_arrow(table, schema, name, mode if mode in ("replace", "merge") else "append", keys or None)
+        if before is not None and table.num_columns:
+            self.record_drift(d, before, table.column_names, pipeline_id, meta.get("source_columns"))
+        if table.num_columns:
+            meta["source_columns"] = table.column_names
+        if mode in ("incremental", "merge") and table.num_rows and source.get("cursor_column") in table.column_names:
             col = table.column(source["cursor_column"])
             mx = pc.max(col).as_py()
             if mx is not None:
@@ -183,9 +204,43 @@ class Platform:
         self.store.update("datasets", d["id"], {"connection_id": connection_id, "source": json.dumps(source),
                                                  "last_loaded_at": now(), "meta": json.dumps(meta)})
         d = self.refresh_columns(self.dataset_by_id(d["id"]))
-        src_label = f"source:{conn['name']}/{source.get('table') or source.get('path') or 'query'}"
+        src_label = f"source:{conn['name']}/{source.get('table') or source.get('object') or source.get('path') or 'query'}"
         self.add_lineage(src_label, f"{schema}.{name}", "ingest", pipeline_id)
         return {"dataset": f"{schema}.{name}", "rows_loaded": loaded, "row_count": d["row_count"], "watermark": meta.get("watermark")}
+
+    def record_drift(self, d: dict, before: dict, incoming: list[str], pipeline_id: int | None = None,
+                     sent_before: list[str] | None = None) -> list[dict]:
+        """Compare a table's columns before and after a load and record what changed: columns the source added, columns
+        it stopped sending, and columns whose type changed. Owners and admins are told, with the downstream impact."""
+        after = {c["name"]: c["type"] for c in self.wh.columns(d["schema_name"], d["name"])}
+        changes = [{"change": "added", "column_name": c, "old_type": None, "new_type": t} for c, t in after.items() if c not in before]
+        was_sent = set(sent_before) if sent_before is not None else set(before)  # report a dropped column once
+        changes += [{"change": "removed", "column_name": c, "old_type": t, "new_type": None} for c, t in before.items()
+                    if c not in incoming and c in was_sent]
+        changes += [{"change": "retyped", "column_name": c, "old_type": before[c], "new_type": t} for c, t in after.items()
+                    if c in before and before[c] != t]
+        if not changes:
+            return []
+        ts = now()
+        for ch in changes:
+            self.store.insert("schema_changes", {"dataset_id": d["id"], "ts": ts, "pipeline_id": pipeline_id, **ch})
+        fqn = f"{d['schema_name']}.{d['name']}"
+        downstream = sorted({r["dst"] for r in self.store.all("SELECT dst FROM lineage WHERE src=?", (fqn,))})
+        words = {"added": "new", "removed": "no longer sent", "retyped": "type changed"}
+        body = "; ".join(f"{c['column_name']} ({words[c['change']]}" + (f": {c['old_type']} → {c['new_type']}" if c["change"] == "retyped" else "") + ")"
+                         for c in changes[:12])
+        if downstream:
+            body += f". Used by {', '.join(downstream[:6])}{' and more' if len(downstream) > 6 else ''}: check them."
+        breaking = any(c["change"] != "added" for c in changes)
+        from .reporting import notify
+        users = {u["id"] for u in self.store.all("SELECT id FROM users WHERE active=1 AND (role='admin' OR lower(email)=lower(?))", (d.get("owner") or "",))}
+        for uid in users:
+            notify(self, uid, f"Schema changed in {fqn}", body, f"#/catalog/{d['id']}", "warn" if breaking else "info")
+        return changes
+
+    def schema_changes(self, dataset_id: int, limit: int = 100) -> list[dict]:
+        return self.store.all("SELECT ts, change, column_name, old_type, new_type, pipeline_id FROM schema_changes WHERE dataset_id=? "
+                              "ORDER BY id DESC LIMIT ?", (dataset_id, limit))
 
     def load_table(self, table: pa.Table, target: str, source_label: str) -> dict:
         schema, name = split_fqn(target, "raw")

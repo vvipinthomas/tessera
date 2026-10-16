@@ -96,6 +96,14 @@ CREATE TABLE IF NOT EXISTS notifications(
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, ts TEXT NOT NULL,
   level TEXT NOT NULL DEFAULT 'info', title TEXT NOT NULL, body TEXT, link TEXT, read INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_notif_user ON notifications(user_id, read, id);
+CREATE TABLE IF NOT EXISTS schema_changes(
+  id INTEGER PRIMARY KEY, dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE, ts TEXT NOT NULL,
+  change TEXT NOT NULL, column_name TEXT NOT NULL, old_type TEXT, new_type TEXT, pipeline_id INTEGER);
+CREATE INDEX IF NOT EXISTS ix_schema_changes ON schema_changes(dataset_id, id);
+CREATE TABLE IF NOT EXISTS mirrors(
+  id INTEGER PRIMARY KEY, connection_id INTEGER NOT NULL REFERENCES connections(id) ON DELETE CASCADE, tables TEXT NOT NULL,
+  keys TEXT DEFAULT '{}', prefix TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, error TEXT, changes INTEGER NOT NULL DEFAULT 0,
+  lag_bytes INTEGER, last_sync_at TEXT, created_by TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS notebooks(
   id INTEGER PRIMARY KEY, name TEXT NOT NULL, cells TEXT NOT NULL DEFAULT '[]', owner_id INTEGER, created_by TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
@@ -143,7 +151,7 @@ MIGRATIONS = [
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
 
 JSON_COLS = {"config", "tags", "columns", "meta", "params", "sample", "steps", "log", "viz", "tiles", "messages", "detail", "value", "source",
-             "joins", "dimensions", "measures", "condition", "channels", "recipients", "filters", "cells", "synonyms", "spec", "attributes", "state", "members"}
+             "joins", "dimensions", "measures", "condition", "channels", "recipients", "filters", "cells", "synonyms", "spec", "attributes", "state", "members", "tables", "keys"}
 
 
 def now() -> str:

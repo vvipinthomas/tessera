@@ -34,7 +34,8 @@ Tessera puts the whole data workflow in one self-hosted application: connectors 
 
 | | |
 |---|---|
-| **Bring data in** | 25 connector types: PostgreSQL, SQL Server and Fabric Warehouse, Snowflake, BigQuery, Databricks, Redshift, MySQL, Oracle, Trino, ClickHouse, MongoDB, Elasticsearch, Delta Lake, Apache Iceberg, S3, SFTP, REST APIs, files and any SQLAlchemy database. Full, append and incremental loads. |
+| **Bring data in** | 25 connector types: PostgreSQL, SQL Server and Fabric Warehouse, Snowflake, BigQuery, Databricks, Redshift, MySQL, Oracle, Trino, ClickHouse, MongoDB, Elasticsearch, Delta Lake, Apache Iceberg, S3, SFTP, REST APIs with OAuth 2, files and any SQLAlchemy database. Ready-made connections to 11 business applications (Salesforce, Dynamics 365, Microsoft 365, HubSpot, Stripe, GitHub, Jira, Zendesk, ServiceNow, Shopify, Airtable), most of them loading only what changed. Copy a whole database in one step, with merge loads detected per table. |
+| **Mirror it** | PostgreSQL mirroring from the database's change log: inserts, updates and deletes arrive within seconds, with no reloads and nothing to install on the database. Schema changes in any source are recorded and announced with their downstream impact. |
 | **Stream it** | Kafka (Confluent, Redpanda, MSK), Azure Event Hubs, Amazon Kinesis, MQTT and HTTP push land continuously in tables. Positions are saved after each batch, so a restart never loses events. Dashboards have a Live mode. |
 | **Make it trustworthy** | Pipelines with dependencies, retries and schedules. Nine kinds of quality rule, suggested from the data, that can stop bad data before it is published. Personal data is detected and masked on publish. Row-level security follows each person everywhere. |
 | **Define it once** | Semantic models hold certified measures such as Revenue and Refund rate, so every report, question and AI answer agrees. A catalog, glossary, lineage and an AI-readiness score per dataset. |
@@ -53,6 +54,28 @@ Tessera puts the whole data workflow in one self-hosted application: connectors 
 <td><img src="docs/images/overview-dark.png" alt="Home page in dark mode with AI readiness and pipeline runs"></td>
 </tr>
 </table>
+
+## How it compares
+
+Tessera does a lot of what Microsoft Fabric does, in one open-source application you run anywhere. Here is where
+each is stronger.
+
+| | Tessera | Microsoft Fabric |
+|---|---|---|
+| Where it runs | Your laptop, server, Kubernetes, AWS or Cloudflare; data stays where you put it | Microsoft's cloud, on Azure capacity |
+| Cost | Free (Apache 2.0); you pay only for the machine | Capacity-based subscription |
+| What's included | Everything, including SSO, SCIM, audit, row-level security and AI agents | Depends on the capacity and licences you buy |
+| Data quality | Built into pipelines: rules suggested from the data, gates that stop bad data before publishing | Through Microsoft Purview or your own notebooks |
+| Personal data | Detected and masked on publish, with an AI-readiness score per dataset | Microsoft Purview sensitivity labels and policies, licensed with Microsoft 365 or Purview |
+| AI | Agents that work inside your permissions and check every figure, plus an MCP server; bring any model provider | Copilot, on paid Fabric capacity |
+| Connectors and mirroring | 25 connector types, 11 business applications, PostgreSQL mirroring | Far more connectors and mirroring sources |
+| Scale | One server: comfortable to hundreds of gigabytes | Distributed Spark and warehouse engines for very large data |
+| BI | Built-in dashboards, plus Power BI, Excel and Tableau over OData | Power BI, the most mature of the lot |
+| Operations | One process you run and upgrade yourself | Fully managed |
+
+Pick Tessera if you want one tool you own, that runs anywhere, with governance and AI built in. Pick Fabric if you
+need petabyte scale, hundreds of managed connectors and a service Microsoft runs for you. They also work together:
+Tessera reads from and delivers to Fabric, and Power BI reads Tessera's governed data.
 
 ## Run it on your computer
 
@@ -147,7 +170,7 @@ Python and FastAPI on the server, DuckDB as the analytical engine (with file and
 
 ## Tested, and honest about limits
 
-The release suite has 267 tests plus a browser test that drives 48 screens in light and dark, desktop and mobile. Connectors run against real services or faithful stand-ins: live PostgreSQL, a Kafka-protocol broker with the librdkafka client, a real MQTT broker and SSH/SFTP server, Kinesis and S3 through moto, real Delta and Iceberg tables, and MongoDB and Elasticsearch stand-ins. An authorization matrix calls every route without credentials and as a viewer. `bandit` and `pip-audit` run on every change.
+The release suite has 306 tests plus a browser test that drives 51 screens in light and dark, desktop and mobile. Connectors run against real services or faithful stand-ins: live PostgreSQL (including mirroring from its change log), every application template against an API simulated from the vendor's paging and sign-in documentation, a Kafka-protocol broker with the librdkafka client, a real MQTT broker and SSH/SFTP server, Kinesis and S3 through moto, real Delta and Iceberg tables, and MongoDB and Elasticsearch stand-ins. An authorization matrix calls every route without credentials and as a viewer. `bandit` and `pip-audit` run on every change.
 
 What Tessera is not:
 

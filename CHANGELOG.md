@@ -5,6 +5,35 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-16
+
+### Added
+- **Business application connections** (Connections → Connect an application): Salesforce, Microsoft Dynamics 365 /
+  Dataverse, Microsoft 365 (Graph, including SharePoint lists), HubSpot, Stripe, GitHub, Jira Cloud, Zendesk,
+  ServiceNow, Shopify and Airtable. Sign-in, paging and objects are set up; you fill in what is yours.
+- **Changes-only loads for applications**: Salesforce, Dynamics 365, Jira, ServiceNow, Shopify, GitHub issues and
+  commits ask the application only for records changed since the last run (SOQL, OData, JQL and encoded-query
+  filters), merged on the record id. Stripe loads new records.
+- **OAuth 2 for any REST API**: client credentials and refresh token, with token caching, renewal and one retry after a
+  rejected token. Page-continuation flags (`more_path`, `last_path`) and keys with dots such as `@odata.nextLink`.
+- **Copy many tables**: copy a whole database, lake or folder in one step. Tessera creates one pipeline and picks merge,
+  incremental or full loads per table from its primary key and change column. `POST /api/connections/{id}/copy`.
+- **PostgreSQL mirroring**: tables kept in step from the database's change log (logical decoding with the built-in
+  `test_decoding` plugin). Inserts, updates, deletes, truncates and key changes are applied within seconds, the slot
+  is advanced only after a successful write, and status, lag, Sync now, Pause and Stop are shown on Connections.
+- **Merge load mode**: upsert on key columns, last row per key wins; with a cursor column, only changed rows.
+- **Schema history**: every load records columns added, no longer sent or retyped. Owners and admins are notified with
+  the downstream tables to check. Catalog → dataset → Schema history and `GET /api/datasets/{id}/schema-changes`.
+- Deploy to Cloudflare entirely from GitHub (the workflow creates the bucket and sets the Worker's secrets), with a
+  step-by-step guide for doing it from a phone and testing on Android ([docs/CLOUDFLARE_MOBILE.md](docs/CLOUDFLARE_MOBILE.md)).
+
+### Changed
+- Appends and merges widen a column whose type no longer fits instead of converting the new values (a decimal
+  arriving in an integer column used to be rounded).
+- SQL table names may contain spaces, `#`, `@` and `-` (they are always quoted).
+- A connection reports only the secret fields that are actually set.
+- CI and `make lint` syntax-check the web app's JavaScript.
+
 ## [1.6.0] - 2026-10-16
 
 ### Added

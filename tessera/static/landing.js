@@ -37,6 +37,7 @@
     if (!box || !cat) return;
     const items = [
       ...cat.types.map((t) => [t.label, t.status === "verified" ? "verified" : "driver", t.status === "verified"]),
+      ...(cat.apps || []).map((a) => [a.label.split(":")[0], a.changes_only ? "app · changes only" : "app", true]),
       ...cat.via_generic.map((v) => [v.name, "via " + v.via, false]),
     ];
     box.replaceChildren(...items.map(([name, tag, ok]) => {

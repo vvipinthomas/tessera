@@ -104,10 +104,10 @@ async function pipelineEditor(main, id) {
         const srcTa = h("textarea", { rows: 3 });
         srcTa.value = JSON.stringify(st.source || { path: "orders.csv" }, null, 1);
         srcTa.addEventListener("change", () => { try { st.source = JSON.parse(srcTa.value); srcTa.setCustomValidity(""); } catch { srcTa.setCustomValidity("Invalid JSON"); toast("Source must be valid JSON", "bad"); } });
-        const mode = h("select", null, ["replace", "append", "incremental"].map((m) => h("option", { selected: (st.mode || "replace") === m }, m)));
+        const mode = h("select", null, ["replace", "append", "incremental", "merge"].map((m) => h("option", { selected: (st.mode || "replace") === m }, m)));
         mode.addEventListener("change", () => (st.mode = mode.value));
         body = [h("div", { class: "form" }, field("Connection", cs), field("Target table", inp(st, "target", { placeholder: "raw.orders", list: "ds-list" })), field("Mode", mode)),
-          field("Source (JSON)", srcTa, 'Files/S3: {"path": "orders*.csv"} · Databases: {"table": "public.orders", "cursor_column": "updated_at"} or {"query": "select …"} · REST: {"path": "/orders", "records_path": "data", "pagination": {"type": "page"}}')];
+          field("Source (JSON)", srcTa, 'Files/S3: {"path": "orders*.csv"} · Databases: {"table": "public.orders", "cursor_column": "updated_at", "key": ["id"]} or {"query": "select …"} · REST: {"path": "/orders", "records_path": "data", "pagination": {"type": "page"}}')];
       } else if (st.type === "transform") {
         body = [field("Target table", inp(st, "target", { placeholder: "curated.orders_clean", list: "ds-list" })), field("SELECT", inp(st, "sql", { tag: "textarea", rows: 4, placeholder: "select … from raw.orders" }))];
       } else if (["quality", "pii_scan", "publish", "export"].includes(st.type)) {

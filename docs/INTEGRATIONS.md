@@ -4,6 +4,10 @@ Tessera is meant to sit alongside the tools a team already has. This page covers
 batch), how it gets out (BI tools, warehouses, lakes) and how Tessera reports to the rest of the data stack
 (lineage, dbt, orchestrators, AI clients). Admins see most of this on **Admin → Integrations**.
 
+- [Business applications: Salesforce, Dynamics 365, Microsoft 365 and more](#business-applications)
+- [Copying a whole database](#copying-a-whole-database)
+- [Mirroring PostgreSQL (change data capture)](#mirroring-postgresql)
+- [Merge loads and schema changes](#merge-loads-and-schema-changes)
 - [Power BI, Excel and Tableau](#power-bi-excel-and-tableau)
 - [Streaming sources](#streaming-sources)
 - [Lakehouse tables: Delta Lake and Apache Iceberg](#lakehouse-tables-delta-lake-and-apache-iceberg)
@@ -17,6 +21,113 @@ batch), how it gets out (BI tools, warehouses, lakes) and how Tessera reports to
 - [REST API](#rest-api)
 
 ---
+
+## Business applications
+
+**Connections → Connect an application** has ready-made connections. Sign-in, paging and incremental loading are
+already set up: you fill in your own details (a subdomain, a tenant, a key), tick the objects you want and press
+**Load selected**. Tessera then creates a pipeline that you can schedule.
+
+| Application | Sign-in | Objects | Loads only what changed |
+|---|---|---|---|
+| Salesforce | OAuth 2 client credentials (External Client App or Connected App) | Account, Contact, Opportunity, Lead, Case, User, Campaign, Task | All, by `SystemModstamp` |
+| Microsoft Dynamics 365 / Dataverse | OAuth 2 (Entra app registered as an application user) | accounts, contacts, opportunities, leads, systemusers, plus any table you name | Built-in tables, by `modifiedon` |
+| Microsoft 365 (Graph) | OAuth 2 (Entra app, application permissions) | users, groups, SharePoint list items | Full copy |
+| HubSpot | Private app token | contacts, companies, deals, tickets, products, line items | Full copy |
+| Stripe | Restricted key | customers, charges, invoices, subscriptions, payment intents, refunds, products, prices, payouts | New records, by `created` |
+| GitHub | Fine-grained token | repositories; issues, pull requests, commits and releases per repository | Issues and commits |
+| Jira Cloud | Email and API token | issues (your JQL), projects | Issues, by `updated` |
+| Zendesk Support | Agent email and API token | tickets, users, organizations, groups | Full copy |
+| ServiceNow | User and password | incident, change_request, problem, sys_user, cmdb_ci, plus any table you name | All, by `sys_updated_on` |
+| Shopify | Admin API token | orders, products, customers | All, by `updated_at` |
+| Airtable | Personal access token | the tables you name | Full copy |
+
+How the changes-only loads work:
+
+- The first run copies everything.
+- Each later run asks the application only for records changed since the newest change already loaded. It looks
+  back a little (five minutes, or a day where the application compares times in the user's time zone).
+- It then merges the result on the record's id, so a changed record replaces its old version and is never duplicated.
+
+Objects that load changes only are marked **changes only** on the connection page.
+
+For any other service, use **REST / JSON API** with page, offset, cursor, next-link or Link-header paging and
+bearer, header, query, basic or OAuth 2 (client credentials or refresh token) sign-in. Tokens are fetched, cached
+and renewed automatically, and a rejected token gets one fresh sign-in and a retry.
+
+*How it is tested:* the test suite checks every object of every template against a simulated API that pages and signs in
+the way the vendor documents. It also checks the exact change filter each application receives (SOQL, OData, JQL,
+ServiceNow encoded queries, and query parameters). The real services are not called in tests.
+
+## Copying a whole database
+
+On any database, warehouse, lake or file connection, choose **Copy many tables → Choose tables**. Tick the tables
+(or **Select all**), pick a schedule, and press **Copy selected**. Tessera creates one pipeline with a load step per
+table and decides how each table is loaded:
+
+| The table has | Load |
+|---|---|
+| A primary key and a change column (`updated_at`, `modified`, `last_modified`, `SystemModstamp` and similar, of a date, time or number type) | **merge**: only changed rows, updated in place |
+| A change column but no key | **incremental**: new rows appended |
+| Neither | **replace**: full copy each run |
+
+The result shows what was detected for each table, and you can edit any step afterwards. Over the API:
+`POST /api/connections/{id}/copy` with `{"tables": [...], "prefix": "crm", "mode": "auto", "schedule": "0 * * * *"}`.
+
+## Mirroring PostgreSQL
+
+Mirroring keeps tables continuously in step with a PostgreSQL database using its change log (logical decoding),
+without reloading. Inserts, updates, deletes and truncates arrive within seconds, and the tables are not queried again after the
+first copy.
+
+**On the database** (once):
+
+```sql
+-- postgresql.conf: wal_level = logical   (then restart)
+ALTER ROLE tessera_reader REPLICATION;   -- Amazon RDS / Aurora: GRANT rds_replication TO tessera_reader;
+```
+
+| Service | Setting to turn on |
+|---|---|
+| Amazon RDS / Aurora PostgreSQL | parameter group `rds.logical_replication = 1` |
+| Azure Database for PostgreSQL | server parameter `wal_level = logical` |
+| Google Cloud SQL | flag `cloudsql.logical_decoding = on` |
+| Supabase, Neon, Crunchy Bridge | logical replication is available; check the provider's setting |
+
+Every mirrored table needs a primary key. Nothing is installed on the database: Tessera uses the built-in
+`test_decoding` output plugin.
+
+**In Tessera:** open the PostgreSQL connection, then **Mirror tables → Choose tables → Start mirroring**. Tessera:
+
+1. creates a replication slot (`tessera_mirror_<id>`), then takes a first copy of each table;
+2. every few seconds (`TESSERA_MIRROR_SECONDS`, default 5) reads the next batch of changes, applies them per table as
+   one merge, and only then tells the database it may discard them. A crash in between replays the batch: changes are
+   applied at least once and the merge makes that safe;
+3. fills in large unchanged values (which the change log leaves out) by reading the row from the source.
+
+**Connections** lists every mirror with its status, changes applied, how far behind it is (in bytes of change log),
+and **Sync now**, **Pause** and **Stop**. Stopping a mirror drops its replication slot. A connection with mirrors cannot
+be deleted until they are stopped, because a forgotten slot makes the database keep change log indefinitely.
+
+Limits: one database per mirror; column renames arrive as a new column; mirroring for SQL Server, MySQL and MongoDB
+is on the roadmap.
+
+## Merge loads and schema changes
+
+**Merge** is a fourth load mode next to replace, append and incremental. Give the key column(s) (`{"key": ["id"]}` in a
+pipeline step, or *Key column(s)* on the connection page). Rows whose key already exists are replaced, and new keys
+are added. If a key appears twice in one load, the last row wins. With a cursor column, a merge also loads only
+changed rows.
+
+**Schema changes** are recorded on every load:
+
+- columns the source **added**;
+- columns it **stopped sending**, recorded once;
+- columns whose **type changed**.
+
+A column whose values no longer fit its type is widened, never truncated: an integer column that starts receiving
+`25.5` becomes a decimal column. The owner and admins get a notification naming the downstream tables to check. The
+history is under **Catalog → dataset → Schema history**, and from `GET /api/datasets/{id}/schema-changes`.
 
 ## Power BI, Excel and Tableau
 

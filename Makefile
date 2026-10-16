@@ -19,8 +19,9 @@ test-fast:       ## run tests except the slow browser and streaming ones
 ui:              ## drive every screen in Chromium
 	python tests/ui_smoke.py
 
-lint:            ## lint Python
+lint:            ## lint Python and syntax-check the web app
 	ruff check tessera tests scripts
+	for f in tessera/static/*.js; do node --check "$$f"; done
 
 security:        ## security lint and dependency audit
 	bandit -q -r tessera -c pyproject.toml

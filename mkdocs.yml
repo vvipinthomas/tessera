@@ -31,6 +31,7 @@ nav:
   - User guide: USER_GUIDE.md
   - Deploy: DEPLOY.md
   - Cloudflare: CLOUDFLARE.md
+  - Cloudflare from a phone: CLOUDFLARE_MOBILE.md
   - Configuration: CONFIGURATION.md
   - Integrations: INTEGRATIONS.md
   - MCP server: MCP.md

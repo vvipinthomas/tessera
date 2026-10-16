@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tessera import connectors  # noqa: E402
+from tessera import connectors, saas  # noqa: E402
 
 S = Path(__file__).resolve().parents[1] / "tessera" / "static"
 out = Path(sys.argv[1] if len(sys.argv) > 1 else "landing-standalone.html")
@@ -16,7 +16,8 @@ body = body.replace('href="/app"', 'href="#install"').replace(">Open Tessera<", 
 body = body.replace('<a class="btn" href="#install">See what stands out</a>', '<a class="btn" href="#standout">See what stands out</a>')
 css = re.sub(r"@font-face\{[^}]*\}\s*", "", (S / "landing.css").read_text())  # fonts come from Google Fonts here
 cat = {"types": [{k: v for k, v in t.items() if k in ("type", "label", "category", "status")} for t in connectors.catalog()],
-       "via_generic": [{"name": n, "via": v} for n, v in connectors.VIA_GENERIC], "roadmap": connectors.ROADMAP}
+       "via_generic": [{"name": n, "via": v} for n, v in connectors.VIA_GENERIC], "roadmap": connectors.ROADMAP,
+       "apps": [{"label": a["label"], "category": a["category"], "changes_only": bool(a["incremental"])} for a in saas.catalog()]}
 page = f"""<title>Tessera</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">

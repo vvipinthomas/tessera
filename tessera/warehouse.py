@@ -344,8 +344,15 @@ class Warehouse:
     def row_count(self, schema: str, name: str) -> int:
         return self.internal(f"SELECT count(*) FROM {qi(schema)}.{qi(name)}")[0][0]
 
-    def load_arrow(self, table: pa.Table, schema: str, name: str, mode: str = "replace") -> int:
+    def load_arrow(self, table: pa.Table, schema: str, name: str, mode: str = "replace", keys: list[str] | None = None,
+                   delete_flag: str | None = None) -> int:
+        """Load rows. ``merge`` upserts on ``keys``: incoming rows replace stored rows with the same key, and when a key
+        appears more than once in the batch the last row wins. With ``delete_flag``, a winning row whose flag column is
+        true deletes the stored row instead (change data capture); the flag column itself is not stored."""
         check_ident(name, "table name")
+        for k in keys or []:
+            if k not in table.column_names:
+                raise QueryError(f"Key column '{k}' is not in the loaded data.")
         if schema not in SCHEMAS:
             raise QueryError("Unknown schema")
         view = f"_tessera_in_{uuid.uuid4().hex[:10]}"
@@ -354,15 +361,54 @@ class Warehouse:
             try:
                 cur.register(view, table)
                 target = f"{qi(schema)}.{qi(name)}"
-                if mode == "replace" or not self.exists(schema, name):
+                merging = mode == "merge" and bool(keys)
+                if merging:  # remember arrival order so the last row for a key wins
+                    cur.unregister(view)
+                    table = table.append_column("_tessera_ord", pa.array(range(table.num_rows), pa.int64()))
+                    cur.register(view, table)
+                if mode == "replace" or (not merging and not self.exists(schema, name)):
                     cur.execute(f"CREATE OR REPLACE TABLE {target} AS SELECT * FROM {qi(view)}")
                 else:
-                    have = {c["name"] for c in self.columns(schema, name)}
+                    if not self.exists(schema, name):
+                        drop = "_tessera_ord" + (f", {qi(delete_flag)}" if merging and delete_flag else "")
+                        cur.execute(f"CREATE TABLE {target} AS SELECT * EXCLUDE ({drop}) FROM {qi(view)} LIMIT 0")
+                    stored = {c["name"]: c["type"] for c in self.columns(schema, name)}
+                    have = set(stored) | {"_tessera_ord", delete_flag}
                     incoming = cur.execute(f"DESCRIBE SELECT * FROM {qi(view)}").fetchall()
                     for col, ctype, *_ in incoming:
                         if col not in have:
                             cur.execute(f"ALTER TABLE {target} ADD COLUMN {qi(col)} {ctype}")
-                    cur.execute(f"INSERT INTO {target} BY NAME SELECT * FROM {qi(view)}")
+                        elif col in stored and stored[col] != ctype:
+                            # widen instead of truncating: 25.5 arriving in an integer column makes it a double
+                            try:
+                                wide = cur.execute(f"SELECT typeof(x) FROM (SELECT NULL::{stored[col]} AS x UNION ALL SELECT NULL::{ctype}) LIMIT 1").fetchone()[0]
+                            except duckdb.Error:
+                                wide = "VARCHAR"
+                            if wide != stored[col]:
+                                cur.execute(f"ALTER TABLE {target} ALTER COLUMN {qi(col)} TYPE {wide}")
+                    if mode == "merge" and keys:
+                        on = " AND ".join(f"t.{qi(k)} IS NOT DISTINCT FROM s.{qi(k)}" for k in keys)
+                        part = ", ".join(qi(k) for k in keys)
+                        cur.execute(f"CREATE TEMP TABLE {qi(view + '_d')} AS SELECT * EXCLUDE (_tessera_rn) FROM "
+                                    f"(SELECT *, row_number() OVER (PARTITION BY {part} ORDER BY _tessera_ord DESC) AS _tessera_rn "
+                                    f"FROM {qi(view)}) WHERE _tessera_rn = 1")
+                        cur.execute(f"ALTER TABLE {qi(view + '_d')} DROP COLUMN _tessera_ord")
+                        cur.execute("BEGIN")
+                        try:
+                            cur.execute(f"DELETE FROM {target} t WHERE EXISTS (SELECT 1 FROM {qi(view + '_d')} s WHERE {on})")
+                            if delete_flag:
+                                cur.execute(f"INSERT INTO {target} BY NAME SELECT * EXCLUDE ({qi(delete_flag)}) FROM {qi(view + '_d')} "
+                                            f"WHERE NOT coalesce({qi(delete_flag)}, false)")
+                            else:
+                                cur.execute(f"INSERT INTO {target} BY NAME SELECT * FROM {qi(view + '_d')}")
+                            cur.execute("COMMIT")
+                        except Exception:
+                            cur.execute("ROLLBACK")
+                            raise
+                        finally:
+                            cur.execute(f"DROP TABLE IF EXISTS {qi(view + '_d')}")
+                    else:
+                        cur.execute(f"INSERT INTO {target} BY NAME SELECT * FROM {qi(view)}")
                 cur.unregister(view)
             finally:
                 cur.close()

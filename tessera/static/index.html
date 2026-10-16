@@ -33,7 +33,7 @@
   <div class="head"><span class="eyebrow">One place</span><h2>Every data job, from source to boardroom</h2>
     <p class="lede">Engineers connect, transform, test and protect data. Everyone else explores it, builds dashboards, gets reports by email and asks questions in plain English, using the same governed definitions.</p></div>
   <div class="jobs">
-    <article><span class="k">Connect</span><h3>Sources</h3><ul><li>PostgreSQL, SQL Server and Fabric Warehouse, Snowflake, BigQuery, Databricks, MongoDB, Elasticsearch, Delta Lake, Iceberg, S3, SFTP, REST APIs, files</li><li>Incremental loads with watermarks</li></ul></article>
+    <article><span class="k">Connect</span><h3>Sources</h3><ul><li>PostgreSQL, SQL Server and Fabric Warehouse, Snowflake, BigQuery, Databricks, MongoDB, Elasticsearch, Delta Lake, Iceberg, S3, SFTP, REST APIs with OAuth, files</li><li>Salesforce, Dynamics 365, Microsoft 365, HubSpot, Stripe, GitHub, Jira, Zendesk, ServiceNow, Shopify, Airtable, most loading only what changed</li><li>Copy a whole database in one step; PostgreSQL mirroring from the change log</li></ul></article>
     <article><span class="k">Stream</span><h3>Live sources</h3><ul><li>Kafka, Confluent, Redpanda, Event Hubs, Kinesis, MQTT and HTTP push</li><li>Saved positions, no loss on restart, live dashboards</li></ul></article>
     <article><span class="k">Orchestrate</span><h3>Pipelines</h3><ul><li>Dependency graphs, retries, cron, webhooks</li><li>Triggered from Airflow, ADF, Dagster or CI</li></ul></article>
     <article><span class="k">Shape</span><h3>Visual transforms</h3><ul><li>Filter, dedupe, join, cast, aggregate by pointing and clicking</li><li>Readable SQL generated for review</li></ul></article>
@@ -124,7 +124,7 @@
 
 <section id="connectors"><div class="wrap">
   <div class="head"><span class="eyebrow">Connectors</span><h2 id="conn-title">Sources and integrations</h2>
-    <p class="lede">Verified connectors run in Tessera's automated test suite against real services. Driver connectors use each vendor's standard driver. SaaS apps connect through the REST connector.</p></div>
+    <p class="lede">Verified connectors run in Tessera's automated test suite against real services. Driver connectors use each vendor's standard driver. Eleven business applications are ready-made; any other API connects through the REST connector with OAuth 2.</p></div>
   <div class="conn" id="conn-list"></div>
 </div></section>
 
@@ -156,7 +156,7 @@ docker compose logs tessera | grep "Setup code"
   </div>
 </div></section>
 </main>
-<footer><div class="wrap">Tessera 1.6 by Vantoras. Apache 2.0. Data quality, privacy, streaming, pipelines, analytics, executive briefs and AI agents on your own hardware or on Cloudflare.</div></footer>
+<footer><div class="wrap">Tessera 1.7 by Vantoras. Apache 2.0. Data quality, privacy, streaming, pipelines, analytics, executive briefs and AI agents on your own hardware or on Cloudflare.</div></footer>
 <script src="/static/landing.js"></script>
 </body>
 </html>

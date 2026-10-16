@@ -236,7 +236,8 @@ def main():
                 shot("overview")
                 routes = [("catalog", "Datasets"), ("catalog/3", "Readiness"), ("catalog/3/columns", "Masking"), ("catalog/3/preview", "First"),
                           ("catalog/3/profile", "Distinct"), ("catalog/3/quality", "Quality rules"), ("catalog/3/lineage", "Upstream"),
-                          ("connections", "Connector catalog"), ("connections/1", "Load data"), ("connections/new", "New connection"),
+                          ("connections", "Connector catalog"), ("connections/1", "Copy many tables"), ("connections/app", "Salesforce"), ("connections/app/stripe", "Save and test"),
+                          ("catalog/3/changes", "schema changes"), ("connections/new", "New connection"),
                           ("pipelines", "Retail daily load"), ("pipelines/1", "Steps"), ("pipelines/1/edit", "Edit pipeline"), ("pipelines/run/2", "Log"),
                           ("sql", "Run"), ("dashboards", "Sales overview"), ("dashboards/1", "Revenue by month"), ("agents", "Ask your data"),
                           ("admin/users", "Add user"), ("admin/tokens", "Create token"), ("admin/sso", "OpenID Connect"), ("admin/ai", "Add provider"), ("admin/audit", "audit"),
@@ -274,6 +275,14 @@ def main():
                     pg.select_option("#viz-type", "bar")
                     pg.wait_for_selector("svg.chart")
                     shot("sql_chart")
+                    # bulk copy: pick every file of the demo connection and copy them in one pipeline
+                    pg.goto(f"{base}/app#/connections/1")
+                    pg.click("text=Choose tables")
+                    pg.wait_for_selector(".objgrid input")
+                    pg.check("input[aria-label='Select all']")
+                    pg.click("text=Copy selected")
+                    pg.wait_for_selector("text=Open the pipeline", timeout=15000)
+                    shot("bulk_copy")
                     pg.goto(f"{base}/app#/catalog/3/quality")
                     pg.click("text=Run checks")
                     pg.wait_for_selector("text=Score", timeout=15000)

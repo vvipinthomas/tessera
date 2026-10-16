@@ -41,6 +41,7 @@ Some tests use real services and skip themselves when they are not available:
 | Test | Needs | How |
 |---|---|---|
 | PostgreSQL connector and delivery | A PostgreSQL server | `TESSERA_TEST_PG="host=127.0.0.1 port=5432 user=postgres dbname=postgres" pytest` |
+| PostgreSQL mirroring | The same server with `wal_level = logical` (`ALTER SYSTEM SET wal_level = logical`, then restart) | Same command; the mirroring tests skip themselves otherwise |
 | Kafka streams | A Kafka-protocol test broker | `sh tests/kafka_broker/build.sh` (needs Go 1.24+) |
 | MQTT, Kinesis, SFTP, Iceberg, Delta, S3, MongoDB | Python packages from the `dev` extra | Installed by `pip install -e ".[dev]"` |
 
@@ -78,6 +79,24 @@ Sign off your commits (`git commit -s`) to certify the [Developer Certificate of
 3. Guard any network address with `guard_url` and any file path with `_within`.
 4. Add an optional extra in `pyproject.toml` for its driver.
 5. Write tests in `tests/` and add the connector to the docs.
+
+## Adding a business application
+
+Most applications need no new code: add a template to `TEMPLATES` in `tessera/saas.py`.
+
+1. Give it a label, a category, a link to the vendor's API docs, a short `about`, and the form `fields`. Mark keys and
+   passwords `secret=True`. Fields that go into the address (subdomain, tenant and similar) are checked automatically
+   and cannot change the host.
+2. Set `base_url`, `auth` (`bearer`, `header`, `basic`, `oauth2_client_credentials` or `oauth2_refresh_token`) and,
+   for OAuth, `token_url` and `scope`. Use `{field}` placeholders.
+3. List `objects` with `path`, `params`, `records_path` and `pagination` exactly as the vendor documents them. Use
+   `objects_from` for objects the person names, such as extra tables.
+4. If the API can filter by last change, add `incremental` with `cursor_column` (the flattened column name, for example
+   `fields_updated`), `key`, `since_params` (use `%SINCE%` where the time goes), and `since_format` and
+   `lookback_seconds` when needed.
+5. Add the template's form values to `VALUES` in `tests/test_saas.py`. The paging test then runs it automatically. Add
+   a case to `test_change_since_filters` if it loads changes only, and add a row to the table in
+   `docs/INTEGRATIONS.md`.
 
 ## Release process (maintainers)
 

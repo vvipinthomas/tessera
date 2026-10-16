@@ -4,8 +4,8 @@
 
 | Version | Security fixes |
 |---|---|
-| 1.6.x | Yes |
-| 1.5.x | Until 1.7.0 is released |
+| 1.7.x | Yes |
+| 1.6.x | Until 1.8.0 is released |
 | Older | No; please upgrade |
 
 ## Reporting a vulnerability
@@ -27,6 +27,8 @@ release notes unless they prefer otherwise.
 - The OData feed accepts API tokens only (as a Bearer token or as the Basic-auth password); account passwords are never accepted there. It serves published data only, with masking and row-level security.
 - HTTP push streams use their own random token per stream, stored hashed and rotatable. Stream, SFTP, Iceberg REST, OpenLineage and REST connections are checked against cloud metadata and link-local addresses, and against private networks when `TESSERA_BLOCK_PRIVATE_HTTP=true`.
 - SFTP connections can pin the server's host key and refuse to connect when it changes.
+- Application templates refuse host fields (subdomain, tenant, site and similar) that could change the address requests go to. OAuth client secrets and refresh tokens are encrypted like other secrets; access tokens are kept in memory only.
+- PostgreSQL mirroring reads the change log through a replication slot. The database user needs the REPLICATION attribute, which allows reading every table's changes, so use a dedicated user. Stopping a mirror drops its slot.
 - The Deliver step only sends published (masked) data out of Tessera.
 - The web app loads no third-party resources: fonts and scripts are bundled.
 
