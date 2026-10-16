@@ -30,6 +30,7 @@ nav:
   - Home: index.md
   - User guide: USER_GUIDE.md
   - Deploy: DEPLOY.md
+  - Cloudflare: CLOUDFLARE.md
   - Configuration: CONFIGURATION.md
   - Integrations: INTEGRATIONS.md
   - MCP server: MCP.md

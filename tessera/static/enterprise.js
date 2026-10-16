@@ -94,7 +94,13 @@ async function adminMCP(el) {
 
 /* ---------------- admin: operations ---------------- */
 async function adminOps(el) {
-  const [ret, sess, shr] = await Promise.all([GET("/api/admin/retention"), GET("/api/sessions?all=true"), GET("/api/admin/sharing")]);
+  const [ret, sess, shr, cloud] = await Promise.all([GET("/api/admin/retention"), GET("/api/sessions?all=true"), GET("/api/admin/sharing"), GET("/api/admin/cloud").catch(() => ({ enabled: false }))]);
+  const cloudCard = cloud.enabled ? h("div", { class: "card" }, h("div", { class: "spread" }, h("h3", null, "Cloud backups"),
+      cloud.last_error ? chip("failing", "bad") : cloud.last_backup_at ? chip("protected", "ok") : chip("waiting for first backup", "warn")),
+    h("p", { class: "small muted" }, `This server keeps its data in ${cloud.bucket}/${cloud.prefix}. A backup is written every ${cloud.interval_minutes} min when anything changed, after each pipeline run, and when the server stops; a new server restores the latest one automatically.`),
+    cloud.last_error ? h("div", { class: "notice bad small" }, cloud.last_error) : null,
+    h("div", { class: "row" }, h("span", { class: "small" }, "Last backup ", h("b", null, cloud.last_backup_at ? ago(cloud.last_backup_at) : "not yet")),
+      h("button", { onclick: async (e) => { await act(e.target, () => POST("/api/admin/cloud/backup"), "Backed up"); render(); } }, "Back up now"))) : null;
   const shOn = h("input", { type: "checkbox", id: "share-on", checked: shr.enabled });
   const shOrig = h("input", { id: "share-origins", value: shr.embed_origins.join(", "), placeholder: "https://intranet.example.com, https://portal.example.com" });
   const sharingCard = h("div", { class: "card" }, h("h3", null, "Sharing and embedding"),
@@ -106,6 +112,7 @@ async function adminOps(el) {
   const since = h("input", { type: "date", id: "ax-since" }), until = h("input", { type: "date", id: "ax-until" });
   const key = h("input", { type: "checkbox", id: "bk-key" });
   el.replaceChildren(
+    cloudCard,
     h("div", { class: "card" }, h("h3", null, "Backup"), h("p", { class: "small muted" }, "Download a consistent snapshot of metadata, the warehouse and uploaded files, with checksums. Restore with ", h("code", null, "tessera restore <file>"), " on a stopped server."),
       h("label", { class: "row small" }, key, "Include the encryption key (store the file somewhere secure)"),
       h("div", null, h("button", { class: "primary", onclick: (e) => act(e.target, () => downloadPost("/api/admin/backup", { include_key: key.checked })) }, "Download backup"))),

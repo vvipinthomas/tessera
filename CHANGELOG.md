@@ -5,6 +5,24 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-16
+
+### Added
+- **Tessera on Cloudflare**: a Worker front door (`cloudflare/`) and Tessera in Cloudflare Containers, deployed with
+  `npx wrangler deploy`. All connectors, streams and features run unchanged. A starting page while a container wakes,
+  a keep-warm cron so schedules and streams run on time, and the visitor's real address passed through.
+- **Cloud mode** (`tessera cloud-run`) for hosts with temporary disks: restore from an S3-compatible bucket (R2, S3,
+  MinIO) on start, consistent backups every few minutes when anything changed, after every pipeline run and on
+  shutdown, retention, and one-time point-in-time restore. Status and "Back up now" in Admin → Operations.
+- Cloudflare Workers AI as an AI provider; R2 Data Catalog (Iceberg) and Delta-on-R2 documented and listed.
+- `TESSERA_SETUP_CODE` to set the first-run code on hosted platforms.
+- `TESSERA_TRUST_PROXY_HEADERS` so sign-in lockout, rate limits and the audit log see each visitor's address behind a
+  proxy; turned on in the HTTPS, Tunnel and Cloudflare setups.
+
+### Fixed
+- Behind a reverse proxy every visitor shared the proxy's address, so one person's failed sign-ins could lock out
+  everyone and rate limits applied to all users together.
+
 ## [1.5.0] - 2026-10-14
 
 ### Added
@@ -81,6 +99,7 @@ project uses [semantic versioning](https://semver.org).
 - First release: connectors, pipelines, data quality, PII detection and masking, catalog, SQL, dashboards, AI agents,
   OIDC SSO and audit.
 
-[Unreleased]: https://github.com/vvipinthomas/tessera/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/vvipinthomas/tessera/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/vvipinthomas/tessera/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/vvipinthomas/tessera/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/vvipinthomas/tessera/releases/tag/v1.4.0

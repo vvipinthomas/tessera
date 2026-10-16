@@ -27,6 +27,8 @@ PROVIDER_KINDS = {
     "azure_openai": {"label": "Azure OpenAI", "base_url": "https://YOUR-RESOURCE.openai.azure.com", "key": True, "model_hint": "deployment name"},
     "openai_compatible": {"label": "OpenAI-compatible (vLLM, Groq, OpenRouter, LM Studio)", "base_url": "http://localhost:1234/v1", "key": False, "model_hint": "model id"},
     "ollama": {"label": "Ollama (fully local)", "base_url": "http://localhost:11434/v1", "key": False, "model_hint": "llama3.1"},
+    "cloudflare_workers_ai": {"label": "Cloudflare Workers AI", "base_url": "https://api.cloudflare.com/client/v4/accounts/YOUR-ACCOUNT-ID/ai/v1",
+                              "key": True, "model_hint": "@cf/meta/llama-3.3-70b-instruct-fp8-fast (pick a model that supports function calling)"},
 }
 
 

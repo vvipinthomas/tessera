@@ -27,6 +27,25 @@ sharing, OpenLineage, retention) is set in the app under **Admin** and stored in
 | `TESSERA_METRICS_TOKEN` | – | Bearer token that may read `/metrics` (otherwise an admin session is required) |
 | `TESSERA_LOG_JSON` | `false` | JSON log lines with request IDs, and an access log |
 | `TESSERA_MCP_ALLOWED_ORIGINS` | – | Extra browser origins allowed to call `/mcp`, comma-separated |
+| `TESSERA_TRUST_PROXY_HEADERS` | `false` | Use the first `X-Forwarded-For` address as the caller's address (sign-in lockout, rate limits, audit). Turn on only when Tessera is reachable solely through your proxy |
+| `TESSERA_SETUP_CODE` | generated | Set the one-time setup code yourself (8+ characters) instead of reading it from the console; useful on hosted platforms |
+
+### Cloud mode (`tessera cloud-run`)
+
+For hosts whose disk does not survive a restart. See [CLOUDFLARE.md](CLOUDFLARE.md).
+
+| Variable | Default | What it does |
+|---|---|---|
+| `TESSERA_CLOUD_BUCKET` | – | S3-compatible bucket for backups (required) |
+| `TESSERA_CLOUD_ENDPOINT` | AWS S3 | Endpoint, for Cloudflare R2 `https://<account id>.r2.cloudflarestorage.com` |
+| `TESSERA_CLOUD_ACCESS_KEY_ID` / `TESSERA_CLOUD_SECRET_ACCESS_KEY` | – | Credentials (or the platform's own role on AWS) |
+| `TESSERA_CLOUD_REGION` | `auto` | Region (R2 uses `auto`) |
+| `TESSERA_CLOUD_PREFIX` | `tessera/` | Folder inside the bucket |
+| `TESSERA_CLOUD_BACKUP_MINUTES` | `5` | Back up this often when anything changed (also after every pipeline run and on shutdown) |
+| `TESSERA_CLOUD_KEEP` | `48` | Backups to keep |
+| `TESSERA_CLOUD_RESTORE_KEY` | – | Restore this backup instead of the latest, once |
+
+Cloud mode requires `TESSERA_MASTER_KEY`, because backups deliberately leave the key out.
 
 ## Command line
 
@@ -37,6 +56,7 @@ tessera reset-password someone@example.com            also unlocks the account
 tessera backup --out backup.tar.gz [--include-key]    stop the server first, or use Admin → Operations
 tessera restore backup.tar.gz [--force]
 tessera mcp --url https://tessera.example.com         MCP stdio bridge for desktop AI clients (token in TESSERA_TOKEN)
+tessera cloud-run [--port 8710]                       run with data kept in an S3/R2 bucket (cloud mode)
 tessera version
 ```
 

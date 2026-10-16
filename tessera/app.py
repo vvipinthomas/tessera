@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import secrets
 from contextlib import asynccontextmanager
@@ -51,9 +52,16 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
 
     setup_code_path = settings.data_dir / "setup-code.txt"
     if not store.scalar("SELECT count(*) FROM users"):
-        if not setup_code_path.exists():
-            setup_code_path.write_text(secrets.token_hex(4).upper())
-        log.warning("First run. Setup code: %s (also in %s)", setup_code_path.read_text().strip(), setup_code_path)
+        preset = os.environ.get("TESSERA_SETUP_CODE", "").strip()
+        if preset:  # hosted installs (containers, PaaS) where reading a file or the console is awkward
+            if len(preset) < 8:
+                raise SystemExit("TESSERA_SETUP_CODE must be at least 8 characters.")
+            setup_code_path.write_text(preset.upper())  # the form compares case-insensitively
+            log.warning("First run. Use the setup code you set in TESSERA_SETUP_CODE.")
+        else:
+            if not setup_code_path.exists():
+                setup_code_path.write_text(secrets.token_hex(4).upper())
+            log.warning("First run. Setup code: %s (also in %s)", setup_code_path.read_text().strip(), setup_code_path)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -63,10 +71,16 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
         yield
         app.state.streams.shutdown()
         orch.stop()
+        for hook in app.state.shutdown_hooks:  # for example a final backup on hosted installs
+            try:
+                hook()
+            except Exception:  # noqa: BLE001
+                log.exception("shutdown hook failed")
         plat.close()
 
     app = FastAPI(title="Tessera", version=__version__, lifespan=lifespan, docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
     app.state.platform, app.state.orch, app.state.oidc, app.state.settings = plat, orch, oidc, settings
+    app.state.shutdown_hooks = []
 
     # ------------------------------------------------------------------ middleware & errors
     @app.middleware("http")

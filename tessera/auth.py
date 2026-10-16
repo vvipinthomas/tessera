@@ -37,7 +37,16 @@ class IPThrottle:
         q.append(t)
 
 
-def client_ip(req: Request) -> str:
+def client_ip(req) -> str:
+    """The caller's address. Behind a reverse proxy (Caddy, a load balancer, Cloudflare) every request arrives from the
+    proxy, so with TESSERA_TRUST_PROXY_HEADERS=true the first X-Forwarded-For entry is used instead. Only turn that on
+    when Tessera cannot be reached except through the proxy, or callers could choose their own address."""
+    import os
+    if os.environ.get("TESSERA_TRUST_PROXY_HEADERS", "").strip().lower() in ("1", "true", "yes", "on"):
+        fwd = req.headers.get("x-forwarded-for", "")
+        first = fwd.split(",")[0].strip()
+        if first:
+            return first[:64]
     return req.client.host if req.client else "unknown"
 
 

@@ -36,3 +36,9 @@ Thumbs.db
 .env
 docker-compose.override.yml
 site/
+
+# Cloudflare Worker
+cloudflare/node_modules/
+cloudflare/dist/
+cloudflare/.wrangler/
+cloudflare/.dev.vars

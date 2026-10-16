@@ -304,7 +304,7 @@ plain-English questions and by AI agents.
 
 Agents work within your permissions, show each tool they used, and flag any number that did not come from a query.
 Personal data is removed before anything is sent to the AI provider. An admin chooses the provider (Anthropic,
-OpenAI, Azure OpenAI, Ollama on your own machine, or any OpenAI-compatible endpoint).
+OpenAI, Azure OpenAI, Cloudflare Workers AI, Ollama on your own machine, or any OpenAI-compatible endpoint).
 
 To use Tessera from Claude Desktop, Claude Code or an IDE, create an API token and follow [MCP.md](MCP.md).
 

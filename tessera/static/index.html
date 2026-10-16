@@ -137,6 +137,12 @@ cd tessera && pip install -e .
 tessera serve
 # open http://127.0.0.1:8710</pre>
       <p class="small muted">The console prints a one-time setup code. Enter it in the browser to create the first admin, optionally with the sample retail workspace.</p></div>
+    <div><h3>On Cloudflare</h3>
+<pre>cd tessera/cloudflare && npm ci
+npx wrangler r2 bucket create tessera-data
+npx wrangler secret put TESSERA_MASTER_KEY   # and the R2 keys
+npx wrangler deploy</pre>
+      <p class="small muted">Runs in Cloudflare Containers behind a Worker, with every change backed up to R2. A restart or upgrade restores itself.</p></div>
     <div><h3>With Docker</h3>
 <pre>docker compose up -d --build
 docker compose logs tessera | grep "Setup code"
@@ -150,7 +156,7 @@ docker compose logs tessera | grep "Setup code"
   </div>
 </div></section>
 </main>
-<footer><div class="wrap">Tessera 1.5 by Vantoras. Apache 2.0. Data quality, privacy, streaming, pipelines, analytics, executive briefs and AI agents on your own hardware.</div></footer>
+<footer><div class="wrap">Tessera 1.6 by Vantoras. Apache 2.0. Data quality, privacy, streaming, pipelines, analytics, executive briefs and AI agents on your own hardware or on Cloudflare.</div></footer>
 <script src="/static/landing.js"></script>
 </body>
 </html>

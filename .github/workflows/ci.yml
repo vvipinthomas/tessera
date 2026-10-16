@@ -63,6 +63,20 @@ jobs:
         if: always()
         with: {name: ui-screenshots, path: ui-shots, if-no-files-found: ignore}
 
+  worker:
+    runs-on: ubuntu-24.04
+    defaults:
+      run: {working-directory: cloudflare}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with: {node-version: "22", cache: npm, cache-dependency-path: cloudflare/package-lock.json}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - name: Wrangler dry run (builds the container image too)
+        run: npx wrangler deploy --dry-run --outdir dist
+
   docker:
     runs-on: ubuntu-24.04
     steps:

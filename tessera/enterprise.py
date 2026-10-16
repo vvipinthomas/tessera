@@ -108,7 +108,8 @@ def caller_key(req: Request) -> str:
     c = req.cookies.get(COOKIE)
     if c:
         return "s:" + hashlib.sha256(c.encode()).hexdigest()[:24]
-    return "ip:" + (req.client.host if req.client else "unknown")
+    from .auth import client_ip
+    return "ip:" + client_ip(req)
 
 
 # ---------------------------------------------------------------- backups
@@ -253,7 +254,7 @@ def register(app, plat, user, need, audit):
         resp.headers["X-Request-ID"] = rid
         if path.startswith(("/api/", "/scim/", "/mcp")) and access_log.isEnabledFor(logging.INFO):
             access_log.info(json.dumps({"ts": now(), "request_id": rid, "method": request.method, "route": route, "status": resp.status_code,
-                                        "ms": round(dt * 1000, 1), "ip": request.client.host if request.client else None}))
+                                        "ms": round(dt * 1000, 1), "ip": _ip(request)}))
         return resp
 
     # ------------------------------------------------------------ readiness and metrics
@@ -370,6 +371,22 @@ def register(app, plat, user, need, audit):
         return {"ok": True}
 
     # ------------------------------------------------------------ backup
+    @app.get("/api/admin/cloud")
+    def cloud_status(u: dict = Depends(admin)):
+        b = getattr(app.state, "cloud", None)
+        return b.status() if b else {"enabled": False}
+
+    @app.post("/api/admin/cloud/backup")
+    def cloud_backup_now(request: Request, u: dict = Depends(admin)):
+        b = getattr(app.state, "cloud", None)
+        if not b:
+            raise HTTPException(400, "Cloud backups are not configured. They run when Tessera is started with `tessera cloud-run`.")
+        name = b.run_once(force=True)
+        if not name:
+            raise HTTPException(502, f"Backup failed: {b.last_error}")
+        audit(u, "cloud.backup", name, None, request)
+        return {"ok": True, "key": name, **b.status()}
+
     @app.post("/api/admin/backup")
     def make_backup(request: Request, b: dict = Body(default={}), u: dict = Depends(admin)):
         fd, path = tempfile.mkstemp(suffix=".tar.gz")
@@ -674,3 +691,8 @@ def register(app, plat, user, need, audit):
             if r:
                 resync(r)
         return Response(status_code=204)
+
+
+def _ip(request):
+    from .auth import client_ip
+    return client_ip(request)

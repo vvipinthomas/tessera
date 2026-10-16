@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse, Response
 
 from . import __version__, agents
 from . import workspaces as ws
+from .auth import client_ip
 from .platform import NotFound
 from .security import has_role
 from .warehouse import QueryError
@@ -170,7 +171,7 @@ def register(app, plat, user, need, audit):
             t0 = time.perf_counter()
             out, ok = agents.run_tool(ctx, name, args, allowed, max_chars=60000)
             store.audit(u, "mcp.tool", name, {"ok": ok, "ms": round((time.perf_counter() - t0) * 1000), "args": {k: (str(v)[:200]) for k, v in args.items()}},
-                        request.client.host if request.client else None)
+                        client_ip(request))
             try:
                 structured = json.loads(out)
             except ValueError:

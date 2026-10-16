@@ -15,7 +15,8 @@ Run exactly one Tessera process per data folder. It is not designed for several 
 | [Your computer](#your-computer) | Trying it, personal analysis | 2 minutes |
 | [Any server with Docker](#any-server-with-docker) | A team on a VM you already have | 10 minutes |
 | [AWS](#aws) | A managed, backed-up install from one template | 15 minutes |
-| [Cloudflare](#cloudflare) | Publishing a Tessera that runs anywhere, without opening ports, behind single sign-on | 20 minutes |
+| [Cloudflare Containers](CLOUDFLARE.md) | Running all of Tessera on Cloudflare, with data kept in R2 and no server to manage | 20 minutes |
+| [Cloudflare Tunnel](#cloudflare) | Publishing a Tessera that runs on your own server, without opening ports, behind single sign-on | 20 minutes |
 
 Sizing: 2 vCPU and 8 GB RAM serve a team of dozens with tens of gigabytes. DuckDB uses memory first and spills to
 disk, so give the data volume room for about twice your largest table. On a 2-vCPU machine a mixed load ran at about
@@ -158,9 +159,14 @@ sudo $(cat .compose-cmd) up -d --build
 
 ## Cloudflare
 
-Cloudflare is the best way to **publish** Tessera safely, but not a place to **run** it. Workers cannot run a Python
-server with a native database engine, and Cloudflare Containers give a container a fresh disk each time it sleeps,
-which would erase Tessera's data. So the setup is:
+There are two ways to use Cloudflare:
+
+- **Run Tessera on Cloudflare** with Containers, a Worker in front and data kept in R2. No server to manage. See
+  **[CLOUDFLARE.md](CLOUDFLARE.md)**.
+- **Publish a Tessera that runs on your own server** through a Cloudflare Tunnel, described here. Use this when the
+  data must stay on your hardware, or when the warehouse is too big for a container's disk.
+
+The tunnel setup:
 
 ```
 browser ──HTTPS──▶ Cloudflare edge (TLS, WAF, optional Access SSO) ──Tunnel──▶ cloudflared ──▶ Tessera on your server

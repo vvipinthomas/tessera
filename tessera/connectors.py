@@ -110,6 +110,7 @@ VIA_GENERIC = [
     ("Zendesk", "rest"), ("Shopify", "rest"), ("Workday (RaaS)", "rest"), ("Dynamics 365 (Web API)", "rest"),
     ("SharePoint lists (Graph)", "rest"), ("GitHub", "rest"), ("GitLab", "rest"),
     ("Google Cloud Storage (S3 interoperability)", "s3"), ("Cloudflare R2", "s3"), ("Wasabi", "s3"),
+    ("Cloudflare R2 Data Catalog (Iceberg)", "iceberg"), ("Delta tables on Cloudflare R2", "delta"),
     ("Microsoft Fabric Warehouse SQL endpoint", "sqlserver"), ("Azure Synapse", "sqlserver"),
     ("IBM Db2", "sqlalchemy"), ("SAP HANA", "sqlalchemy"), ("Teradata", "sqlalchemy"), ("Vertica", "sqlalchemy"),
 ]

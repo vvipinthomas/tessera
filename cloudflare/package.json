@@ -1,0 +1,21 @@
+{
+  "name": "tessera-cloudflare",
+  "private": true,
+  "version": "1.6.0",
+  "description": "Tessera on Cloudflare: a Worker front door for the Tessera container, with data kept safe in R2.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit && wrangler deploy --dry-run --outdir dist",
+    "test": "node --test --experimental-strip-types test/*.test.ts"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261001.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.146.0"
+  }
+}

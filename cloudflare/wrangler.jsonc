@@ -1,0 +1,44 @@
+// Tessera on Cloudflare. A Worker is the front door; Tessera itself runs in a Cloudflare Container built from the
+// repository's Dockerfile; everything it stores is backed up to R2, so restarts and moves lose nothing but the last
+// few minutes at worst. See docs/CLOUDFLARE.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tessera",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "containers": [
+    {
+      "class_name": "TesseraContainer",
+      "image": "../Dockerfile",
+      "image_build_context": "..",
+      // 2 vCPU, 8 GiB memory, 16 GB disk. Use "standard-4" (4 vCPU, 12 GiB, 20 GB) for bigger data.
+      "instance_type": "standard-3",
+      // One Tessera per deployment: it is a single-node product and must not run twice on the same data.
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "TESSERA", "class_name": "TesseraContainer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TesseraContainer"] }],
+
+  // The bucket that holds Tessera's backups (and, if you like, your lake: Delta, Iceberg via R2 Data Catalog, files).
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "tessera-data" }],
+
+  // Every 5 minutes: keep Tessera running so schedules, alerts and streams fire on time (set KEEP_WARM to "false"
+  // to let it sleep when idle; it then wakes on the next visit and restores from R2).
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  "vars": {
+    "KEEP_WARM": "true",
+    "SLEEP_AFTER": "30m",
+    "TESSERA_CLOUD_BUCKET": "tessera-data",
+    "TESSERA_CLOUD_BACKUP_MINUTES": "5",
+    "TESSERA_TIMEZONE": "UTC"
+    // Secrets (wrangler secret put ...): TESSERA_MASTER_KEY, TESSERA_SETUP_CODE, R2_ACCOUNT_ID,
+    // TESSERA_CLOUD_ACCESS_KEY_ID, TESSERA_CLOUD_SECRET_ACCESS_KEY. Optional: TESSERA_BASE_URL.
+  }
+}

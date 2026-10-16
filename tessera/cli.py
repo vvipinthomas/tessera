@@ -99,6 +99,9 @@ def main(argv: list[str] | None = None) -> None:
     mc = sub.add_parser("mcp", help="MCP stdio bridge to a running Tessera server (for Claude Desktop and other local MCP clients)")
     mc.add_argument("--url", default=os.environ.get("TESSERA_URL", "http://127.0.0.1:8710"), help="Tessera base URL (or TESSERA_URL)")
     mc.add_argument("--token", default=os.environ.get("TESSERA_TOKEN"), help="API token (or TESSERA_TOKEN)")
+    cr = sub.add_parser("cloud-run", help="Run the server on a host without a persistent disk, backing up to S3/R2 (see tessera/cloud.py)")
+    cr.add_argument("--host", default="0.0.0.0")  # nosec B104 - containers listen on all interfaces
+    cr.add_argument("--port", type=int)
     sub.add_parser("version")
     a = ap.parse_args(argv)
     if a.cmd == "version":
@@ -123,6 +126,11 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Restored backup from {m['created_at']} (Tessera {m['version']}) into {settings.data_dir}")
             if not m["includes_key"]:
                 print("The archive has no master.key: keep the original key file in the data folder or saved connection secrets cannot be decrypted.")
+        return
+    if a.cmd == "cloud-run":
+        from . import cloud
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+        cloud.run(settings, a.host, a.port or settings.port)
         return
     if a.cmd == "serve":
         import uvicorn

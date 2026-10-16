@@ -4,8 +4,8 @@
 
 | Version | Security fixes |
 |---|---|
-| 1.5.x | Yes |
-| 1.4.x | Until 1.6.0 is released |
+| 1.6.x | Yes |
+| 1.5.x | Until 1.7.0 is released |
 | Older | No; please upgrade |
 
 ## Reporting a vulnerability

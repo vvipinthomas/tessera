@@ -7,6 +7,8 @@ services:
     expose: ["8710"]
     environment:
       TESSERA_SECURE_COOKIES: "true"
+      # Tessera is reachable only through the proxy here, so its forwarded client address can be trusted
+      TESSERA_TRUST_PROXY_HEADERS: "true"
       TESSERA_BASE_URL: "https://${TESSERA_DOMAIN:?set TESSERA_DOMAIN}"
 
   caddy:

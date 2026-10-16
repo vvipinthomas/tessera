@@ -108,22 +108,24 @@ TESSERA_DOMAIN=tessera.example.com \
 
 ## Deploy it
 
-Tessera is one process with its data on a local disk (DuckDB plus SQLite). Give it a machine or container **with a persistent volume**, put HTTPS in front, and back up the data folder. Step-by-step guides are in [docs/DEPLOY.md](docs/DEPLOY.md):
+Tessera is one process with its data in one folder (DuckDB plus SQLite). Give it a persistent disk, or run it in cloud mode, where it keeps its data in object storage and restores itself on start. Step-by-step guides:
 
 | Where | How | Guide |
 |---|---|---|
 | **AWS** | One CloudFormation stack: EC2 with Docker, an encrypted EBS data volume, HTTPS through Caddy, nightly backups to a private S3 bucket, shell access through Systems Manager. | [AWS](docs/DEPLOY.md#aws) · [`deploy/aws/tessera-ec2.yaml`](deploy/aws/tessera-ec2.yaml) |
-| **Cloudflare** | Run Tessera on any server or VM (no open ports) and publish it through a Cloudflare Tunnel, optionally behind Cloudflare Access single sign-on. Host the landing page on Cloudflare Pages. | [Cloudflare](docs/DEPLOY.md#cloudflare) · [`deploy/cloudflare`](deploy/cloudflare) |
+| **Cloudflare** | All of Tessera on Cloudflare: a Worker front door, Tessera in Cloudflare Containers, data backed up to R2 every few minutes and on every shutdown, restored automatically. `npx wrangler deploy` and you are live. | [Cloudflare](docs/CLOUDFLARE.md) · [`cloudflare/`](cloudflare) |
+| **Cloudflare Tunnel** | Tessera on your own server, published through Cloudflare with no open ports, optionally behind Cloudflare Access. | [Tunnel](docs/DEPLOY.md#cloudflare) · [`deploy/cloudflare`](deploy/cloudflare) |
 | **Any server** | Docker Compose with Caddy for HTTPS. | [Docker](docs/DEPLOY.md#any-server-with-docker) |
 
-> **Why not Cloudflare Workers, Containers, AWS Lambda or Fargate?** They either cannot run a Python server with a native database engine, or they give it a disk that is wiped when the instance sleeps or moves. Tessera would lose its data. The guides explain the options that work.
+> **Serverless platforms with temporary disks** (Cloudflare Containers, Fargate, Cloud Run) work in cloud mode: `tessera cloud-run` restores from an S3-compatible bucket on start and backs up while running and on shutdown. Function platforms such as Workers alone or Lambda cannot host the server itself.
 
 ## Documentation
 
 | Guide | For |
 |---|---|
 | [User guide](docs/USER_GUIDE.md) | Everyone: every screen, from first sign-in to dashboards, briefs, streams and AI agents |
-| [Deploy](docs/DEPLOY.md) | Running Tessera on AWS, Cloudflare or your own server, with HTTPS, backups and upgrades |
+| [Deploy](docs/DEPLOY.md) | Running Tessera on AWS or your own server, with HTTPS, backups and upgrades |
+| [Cloudflare](docs/CLOUDFLARE.md) | Running all of Tessera on Cloudflare Containers with R2, Access and Workers AI |
 | [Configuration](docs/CONFIGURATION.md) | Every environment variable and command-line option |
 | [Integrations](docs/INTEGRATIONS.md) | Power BI, Excel, Tableau, streaming sources, dbt, OpenLineage, destinations, orchestrators |
 | [MCP server](docs/MCP.md) | Connecting Claude, IDEs and your own agents |
@@ -144,7 +146,7 @@ Python and FastAPI on the server, DuckDB as the analytical engine (with file and
 
 ## Tested, and honest about limits
 
-The release suite has 258 tests plus a browser test that drives 48 screens in light and dark, desktop and mobile. Connectors run against real services or faithful stand-ins: live PostgreSQL, a Kafka-protocol broker with the librdkafka client, a real MQTT broker and SSH/SFTP server, Kinesis and S3 through moto, real Delta and Iceberg tables, and MongoDB and Elasticsearch stand-ins. An authorization matrix calls every route without credentials and as a viewer. `bandit` and `pip-audit` run on every change.
+The release suite has 267 tests plus a browser test that drives 48 screens in light and dark, desktop and mobile. Connectors run against real services or faithful stand-ins: live PostgreSQL, a Kafka-protocol broker with the librdkafka client, a real MQTT broker and SSH/SFTP server, Kinesis and S3 through moto, real Delta and Iceberg tables, and MongoDB and Elasticsearch stand-ins. An authorization matrix calls every route without credentials and as a viewer. `bandit` and `pip-audit` run on every change.
 
 What Tessera is not:
 
