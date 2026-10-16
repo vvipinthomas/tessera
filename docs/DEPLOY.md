@@ -16,6 +16,7 @@ Run exactly one Tessera process per data folder. It is not designed for several 
 | [Any server with Docker](#any-server-with-docker) | A team on a VM you already have | 10 minutes |
 | [AWS](#aws) | A managed, backed-up install from one template | 15 minutes |
 | [Cloudflare Containers](CLOUDFLARE.md) | Running all of Tessera on Cloudflare, with data kept in R2 and no server to manage | 20 minutes |
+| [Cloudflare from a phone](CLOUDFLARE_MOBILE.md) | The same, deployed through GitHub Actions without a computer | 30 minutes |
 | [Cloudflare Tunnel](#cloudflare) | Publishing a Tessera that runs on your own server, without opening ports, behind single sign-on | 20 minutes |
 
 Sizing: 2 vCPU and 8 GB RAM serve a team of dozens with tens of gigabytes. DuckDB uses memory first and spills to

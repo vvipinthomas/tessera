@@ -1,8 +1,14 @@
 name: Deploy to Cloudflare
 
-# Manual deploy of the Worker and the Tessera container to your Cloudflare account.
-# Repository secrets needed: CLOUDFLARE_API_TOKEN (Workers Scripts, Containers and R2 edit permissions) and
-# CLOUDFLARE_ACCOUNT_ID. Tessera's own secrets are set once with `wrangler secret put` (see docs/CLOUDFLARE.md).
+# Deploys the Worker and the Tessera container to your Cloudflare account. Everything is set from GitHub, so it can
+# be done from a phone (see docs/CLOUDFLARE_MOBILE.md).
+#
+# Repository secrets:
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID      required, for Wrangler
+#   TESSERA_MASTER_KEY, TESSERA_SETUP_CODE           required on the first deploy, sent to the Worker as secrets
+#   TESSERA_CLOUD_ACCESS_KEY_ID,
+#   TESSERA_CLOUD_SECRET_ACCESS_KEY                  required on the first deploy (R2 key pair for backups)
+# Tessera secrets left empty here are not touched, so values set earlier with `wrangler secret put` stay.
 on:
   workflow_dispatch:
 
@@ -19,13 +25,34 @@ jobs:
     environment: cloudflare
     defaults:
       run: {working-directory: cloudflare}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with: {node-version: "22", cache: npm, cache-dependency-path: cloudflare/package-lock.json}
       - run: npm ci
       - run: npm test
-      - run: npx wrangler deploy
+      - name: Create the R2 bucket (once)
+        run: |
+          if npx wrangler r2 bucket list | grep -qw tessera-data; then echo "Bucket exists"; else npx wrangler r2 bucket create tessera-data; fi
+      - name: Deploy
+        run: npx wrangler deploy
+      - name: Send Tessera's secrets to the Worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TESSERA_MASTER_KEY: ${{ secrets.TESSERA_MASTER_KEY }}
+          TESSERA_SETUP_CODE: ${{ secrets.TESSERA_SETUP_CODE }}
+          TESSERA_CLOUD_ACCESS_KEY_ID: ${{ secrets.TESSERA_CLOUD_ACCESS_KEY_ID }}
+          TESSERA_CLOUD_SECRET_ACCESS_KEY: ${{ secrets.TESSERA_CLOUD_SECRET_ACCESS_KEY }}
+        run: |
+          node -e '
+            const keys = ["TESSERA_MASTER_KEY", "TESSERA_SETUP_CODE", "TESSERA_CLOUD_ACCESS_KEY_ID", "TESSERA_CLOUD_SECRET_ACCESS_KEY"];
+            const out = {};
+            for (const k of keys) if (process.env[k]) out[k] = process.env[k];
+            if (Object.keys(out).length) out.R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+            require("fs").writeFileSync(process.env.RUNNER_TEMP + "/secrets.json", JSON.stringify(out));
+            console.log("Setting:", Object.keys(out).join(", ") || "nothing");
+          '
+          if [ "$(cat "$RUNNER_TEMP/secrets.json")" != "{}" ]; then npx wrangler secret bulk "$RUNNER_TEMP/secrets.json"; fi
+          rm -f "$RUNNER_TEMP/secrets.json"

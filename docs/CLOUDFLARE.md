@@ -85,8 +85,10 @@ The first deploy can take several minutes while Cloudflare provisions the contai
 **5. Open it.** You will see *Tessera is starting* for up to a minute, then the setup screen. Enter your setup code,
 create the admin account, and leave **Start in demo mode** ticked if you want the guided tour.
 
-**Deploying from GitHub instead.** Fork the repository, add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as
-repository secrets, set the Tessera secrets once as in step 3, then run **Actions → Deploy to Cloudflare**.
+**Deploying from GitHub instead (no computer needed).** Add `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and the
+four `TESSERA_*` secrets from step 3 as repository secrets, then run **Actions → Deploy to Cloudflare**. The workflow
+creates the bucket, deploys and sets the Worker's secrets. Step by step, from a phone:
+[CLOUDFLARE_MOBILE.md](CLOUDFLARE_MOBILE.md).
 
 ## Your own domain
 

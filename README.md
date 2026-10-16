@@ -126,6 +126,7 @@ Tessera is one process with its data in one folder (DuckDB plus SQLite). Give it
 | [User guide](docs/USER_GUIDE.md) | Everyone: every screen, from first sign-in to dashboards, briefs, streams and AI agents |
 | [Deploy](docs/DEPLOY.md) | Running Tessera on AWS or your own server, with HTTPS, backups and upgrades |
 | [Cloudflare](docs/CLOUDFLARE.md) | Running all of Tessera on Cloudflare Containers with R2, Access and Workers AI |
+| [Cloudflare from your phone](docs/CLOUDFLARE_MOBILE.md) | Deploying through GitHub Actions with no computer, then testing on Android |
 | [Configuration](docs/CONFIGURATION.md) | Every environment variable and command-line option |
 | [Integrations](docs/INTEGRATIONS.md) | Power BI, Excel, Tableau, streaming sources, dbt, OpenLineage, destinations, orchestrators |
 | [MCP server](docs/MCP.md) | Connecting Claude, IDEs and your own agents |
