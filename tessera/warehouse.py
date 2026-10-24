@@ -39,6 +39,12 @@ class AccessDenied(QueryError):
     pass
 
 
+def arrow_table(result) -> pa.Table:
+    """A query result as an Arrow table, on DuckDB 1.x (fetch_arrow_table) and 2.x (to_arrow_table)."""
+    fn = getattr(result, "to_arrow_table", None) or result.fetch_arrow_table
+    return fn()
+
+
 def qi(name: str) -> str:
     return '"' + str(name).replace('"', '""') + '"'
 
@@ -222,6 +228,8 @@ class Warehouse:
                         target = tbl
                     if target:
                         n["catalog_name"], n["schema_name"], n["table_name"] = "", "", f"__rls_{target}"
+                        if "qualified_name" in n:  # DuckDB 2.0 writes the name from this path, not the fields above
+                            n["qualified_name"] = {**(n["qualified_name"] or {}), "path": [f"__rls_{target}"]}
                         used.add(target)
                 for v in n.values():
                     rewrite(v)
@@ -234,7 +242,15 @@ class Warehouse:
             return sql
         for t in used:
             cur.execute(f"CREATE OR REPLACE TEMP VIEW {qi('__rls_' + t)} AS SELECT * FROM {qi(self.catalog)}.serving.{qi(t)} WHERE {rls[t]}")
-        return cur.execute("SELECT json_deserialize_sql(?)", [json.dumps(tree)]).fetchone()[0]
+        out = cur.execute("SELECT json_deserialize_sql(?)", [json.dumps(tree)]).fetchone()[0]
+        # Fail closed: parse the rewritten query again and refuse it if any protected table is still read directly.
+        # (DuckDB 2.0 changed how table names are written back; a silent change like that must never drop the filter.)
+        tables, out_ctes, _ = self.table_refs(out, cur)
+        for cat, sch, tbl in tables:
+            direct = (sch == "serving" and cat in ("", self.catalog)) or (not cat and not sch and tbl not in out_ctes)
+            if direct and tbl in rls:
+                raise AccessDenied("Row-level security could not be applied to this query, so it was not run.")
+        return out
 
     # ---------- queries ----------
     @contextlib.contextmanager
@@ -453,7 +469,9 @@ class Warehouse:
 
     def arrow(self, schema: str, name: str, batch_rows: int = 100_000):
         cur = self.cursor()
-        return cur.execute(f"SELECT * FROM {qi(schema)}.{qi(name)}").fetch_record_batch(batch_rows)
+        res = cur.execute(f"SELECT * FROM {qi(schema)}.{qi(name)}")
+        fn = getattr(res, "to_arrow_reader", None) or res.fetch_record_batch  # DuckDB 2.x / 1.x
+        return fn(batch_rows)
 
     def summarize(self, schema: str, name: str) -> list[dict]:
         def run():

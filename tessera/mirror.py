@@ -26,7 +26,7 @@ import pyarrow as pa
 
 from . import connectors
 from .store import now
-from .warehouse import qi
+from .warehouse import arrow_table, qi
 
 log = logging.getLogger("tessera.mirror")
 
@@ -279,7 +279,7 @@ class Mirror:
         try:
             cur.register(v, t)
             sel = ", ".join(f"TRY_CAST({qi(c)} AS {ty}) AS {qi(c)}" for c, ty in types.items())
-            return cur.execute(f"SELECT {sel}, {qi(DELETED)} FROM {v}").fetch_arrow_table()
+            return arrow_table(cur.execute(f"SELECT {sel}, {qi(DELETED)} FROM {v}"))
         finally:
             cur.unregister(v)
             cur.close()

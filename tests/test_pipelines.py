@@ -72,7 +72,7 @@ def test_full_run_lineage_and_export(env):
     p = c.post("/api/pipelines", json={"name": "p1", "steps": steps(env["conn"]), "webhook_url": "http://hooks.test/done"}).json()
     rid = c.post(f"/api/pipelines/{p['id']}/run").json()["run_id"]
     r = wait_run(c, rid)
-    assert r["status"] == "success", r["log"]
+    assert r["status"] == "success", [x for x in r["log"] if x["level"] != "info"] or r["steps"]
     assert all(s["status"] == "success" for s in r["steps"].values())
     assert c.post("/api/sql", json={"sql": "select count(*) from serving.o"}).json()["rows"] == [[3]]
     emails = c.post("/api/sql", json={"sql": "select email from serving.o"}).json()["rows"]

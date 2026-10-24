@@ -93,6 +93,6 @@ jobs:
         run: docker build -t tessera:ci .
       - name: Start it and wait for readiness
         run: |
-          docker run -d --name t -p 8710:8710 tessera:ci
+          docker run -d --name tessera-ci -p 8710:8710 tessera:ci
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8710/api/ready && exit 0; sleep 2; done
-          docker logs t; exit 1
+          docker logs tessera-ci; exit 1

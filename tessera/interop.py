@@ -27,7 +27,7 @@ from fastapi.responses import JSONResponse
 from . import connectors
 from .connectors import ConnectorError, _within
 from .store import now
-from .warehouse import QueryError, qi, split_fqn
+from .warehouse import QueryError, arrow_table, qi, split_fqn
 
 SQL_TYPES = {k for k, t in connectors.CONNECTOR_TYPES.items() if k not in ("file", "rest", "s3", "mongodb", "elasticsearch", "delta")
              and not t.get("stream") and k not in ("iceberg", "sftp")}
@@ -49,7 +49,7 @@ def read_published(plat, dataset: str) -> tuple[str, str, pa.Table]:
         raise DeliveryError(f"serving.{name} does not exist. Run its publish step first.")
     cur = plat.wh.cursor()
     try:
-        return schema, name, cur.execute(f"SELECT * FROM {qi(schema)}.{qi(name)}").arrow()
+        return schema, name, arrow_table(cur.execute(f"SELECT * FROM {qi(schema)}.{qi(name)}"))
     finally:
         cur.close()
 

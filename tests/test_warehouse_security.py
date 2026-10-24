@@ -115,3 +115,25 @@ def test_join_using_and_cte_for_restricted_and_lineage(wh):
     with pytest.raises(AccessDenied):
         wh.query("select * from read_csv_auto('x.csv')", restricted=True)
     assert wh.query("select * from range(3)", restricted=True)["row_count"] == 3
+
+
+def test_rls_fails_closed_if_the_rewrite_is_lost(tmp_path):
+    """If DuckDB ever writes the rewritten query back without the filtered view (as 2.0 first did), refuse to run it."""
+    from tessera.warehouse import AccessDenied, Warehouse
+    wh = Warehouse(tmp_path / "w.duckdb")
+    cur = wh.cursor()
+    cur.execute("CREATE TABLE serving.t AS SELECT 'BC' AS province UNION ALL SELECT 'ON'")
+
+    class LosesRewrite:
+        def __init__(self, c):
+            self.c = c
+
+        def execute(self, sql, params=None):
+            if "json_deserialize_sql" in sql:  # pretend the engine ignored the rewritten table name
+                return self.c.execute("SELECT ?", ["SELECT * FROM serving.t"])
+            return self.c.execute(sql, params) if params is not None else self.c.execute(sql)
+
+    rls = {"t": "province = 'BC'"}
+    assert "__rls_t" in wh.apply_rls("SELECT * FROM serving.t", rls, cur)
+    with pytest.raises(AccessDenied, match="could not be applied"):
+        wh.apply_rls("SELECT * FROM serving.t", rls, LosesRewrite(cur))

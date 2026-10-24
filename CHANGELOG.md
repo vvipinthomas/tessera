@@ -34,6 +34,15 @@ project uses [semantic versioning](https://semver.org).
 - A connection reports only the secret fields that are actually set.
 - CI and `make lint` syntax-check the web app's JavaScript.
 
+### Fixed
+- **Row-level security with DuckDB 2.0**: DuckDB 2.0 writes table names back from a new field, so the per-person filter
+  was dropped and a restricted viewer could see every row. The rewrite now sets that field, and Tessera re-checks every
+  rewritten query and refuses to run it if a protected table would be read unfiltered. Fresh installs pick up DuckDB 2.0,
+  so upgrade if you installed 1.5 or 1.6 recently.
+- Exports and deliveries failed on DuckDB 2.0 (Arrow methods were renamed); both 1.x and 2.x now work. DuckDB is capped
+  below 3.0 until the next major version is tested.
+- The CI container check used a one-letter container name, which current Docker rejects.
+
 ## [1.6.0] - 2026-10-16
 
 ### Added
