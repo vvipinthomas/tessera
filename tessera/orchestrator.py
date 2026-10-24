@@ -184,7 +184,10 @@ class Orchestrator:
     def _execute(self, run_id: int) -> None:
         store = self.p.store
         run = store.one("SELECT * FROM pipeline_runs WHERE id=?", (run_id,))
-        pl = store.one("SELECT * FROM pipelines WHERE id=?", (run["pipeline_id"],))
+        pl = store.one("SELECT * FROM pipelines WHERE id=?", (run["pipeline_id"],)) if run else None
+        if not run or not pl:  # the pipeline (and with it this queued run) was deleted before the run started
+            log.info("run %s skipped: its pipeline no longer exists", run_id)
+            return
         logs: list[dict] = []
         states: dict[str, dict] = {}
 

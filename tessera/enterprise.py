@@ -116,8 +116,7 @@ def caller_key(req: Request) -> str:
 # ---------------------------------------------------------------- backups
 def backup(platform, dest: Path, include_key: bool = False) -> dict:
     """Write a consistent .tar.gz of metadata, warehouse and uploads. Runs inside the server or offline."""
-    settings = platform.settings if platform else None
-    data_dir = settings.data_dir if settings else None
+    data_dir = platform.settings.data_dir
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         src = sqlite3.connect(str(data_dir / "tessera.db"))

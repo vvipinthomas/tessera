@@ -5,6 +5,20 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-10-24
+
+### Fixed
+- Deleting a pipeline while one of its runs was waiting to start crashed the scheduler's worker; the run is now
+  skipped cleanly (found by type checking).
+- Visual transforms fail with a clear message if a step type ever has no implementation, instead of reusing the
+  previous step's SQL.
+
+### Added
+- Tests for refusals that had never been exercised: sign-in throttling, deactivated people and their API tokens,
+  malformed Basic auth, SQL guard edge cases, share-link permissions, OData limits, password rules, the master key
+  check, and account recovery from the command line (`create-user`, `reset-password`).
+- CI measures test coverage (87%) and fails if it drops below 85%.
+
 ## [1.7.2] - 2026-10-24
 
 ### Fixed

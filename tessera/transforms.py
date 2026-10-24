@@ -123,5 +123,7 @@ def compile_steps(source: str, steps: list[dict]) -> str:
             body = f"SELECT * FROM {prev} ORDER BY {qi(c)} {'DESC' if st.get('desc') else 'ASC'}"
         elif op == "limit":
             body = f"SELECT * FROM {prev} LIMIT {max(1, int(st.get('n') or 100))}"
+        else:  # every name in OPS has a branch above; fail loudly if one is ever added without one
+            raise QueryError(f"Step {i}: '{op}' is not implemented.")
         ctes.append(f"s{i} AS ({body})")
     return "WITH " + ",\n".join(ctes) + f"\nSELECT * FROM s{len(steps or [])}"

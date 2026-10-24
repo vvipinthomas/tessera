@@ -56,7 +56,7 @@ jobs:
       - name: Build the Kafka-protocol test broker
         run: sh tests/kafka_broker/build.sh
       - run: pip install -e ".[dev,mysql,s3,mongodb,delta]"
-      - run: pytest -q
+      - run: pytest -q --cov=tessera --cov-report=term  # fails below the floor in pyproject.toml
 
   ui:
     runs-on: ubuntu-24.04

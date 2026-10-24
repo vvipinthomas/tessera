@@ -29,7 +29,7 @@ Parameters:
     Description: Who may reach the web ports. Narrow this to your office or VPN range where you can.
   Version:
     Type: String
-    Default: v1.7.2
+    Default: v1.7.3
     Description: Git tag of Tessera to deploy.
   RepoUrl:
     Type: String

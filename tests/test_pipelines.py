@@ -152,3 +152,13 @@ def test_engineer_only(env, settings):
     a = Client(app)
     a.post("/api/auth/login", json={"email": "ana@acme.ca", "password": "another strong pass 7"})
     assert a.post("/api/pipelines", json={"name": "x", "steps": []}).status_code == 403
+
+
+def test_deleting_a_pipeline_with_a_queued_run(admin, app):
+    p = admin.post("/api/pipelines", json={"name": "short-lived", "steps": [{"id": "t", "type": "transform", "sql": "select 1 as x", "target": "curated.sl"}]}).json()
+    store = app.state.platform.store
+    from tessera.store import now
+    rid = store.insert("pipeline_runs", {"pipeline_id": p["id"], "status": "queued", "trigger": "manual", "created_at": now()})
+    assert admin.delete(f"/api/pipelines/{p['id']}").status_code == 200
+    app.state.orch._execute(rid)  # the worker picks the run up after the delete: it must exit quietly
+    assert store.one("SELECT id FROM pipeline_runs WHERE id=?", (rid,)) is None
