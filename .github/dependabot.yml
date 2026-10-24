@@ -1,12 +1,26 @@
 version: 2
 updates:
+  # Python: Tessera declares minimum versions (>=) so users get current releases. Only propose a change when a new
+  # release falls outside the allowed range; known vulnerabilities still arrive as security updates.
   - package-ecosystem: pip
     directory: "/"
     schedule: {interval: weekly}
-    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    groups:
+      python:
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: {interval: monthly}
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: "/"
     schedule: {interval: monthly}
+  - package-ecosystem: npm
+    directory: "/cloudflare"
+    schedule: {interval: monthly}
+    groups:
+      cloudflare-worker:
+        patterns: ["*"]

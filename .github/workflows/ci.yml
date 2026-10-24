@@ -16,7 +16,7 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev]"
@@ -42,11 +42,11 @@ jobs:
     env:
       TESSERA_TEST_PG: "host=127.0.0.1 port=5432 user=postgres dbname=postgres"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with: {python-version: "${{ matrix.python }}", cache: pip}
-      - uses: actions/setup-go@v6
-        with: {go-version: "1.24"}
+      - uses: actions/setup-go@v7
+        with: {go-version: "1.24", cache: false}  # the test broker is built by a script, there is no go.mod
       - name: Turn on logical decoding for the mirroring tests
         run: |
           psql "$TESSERA_TEST_PG" -c "ALTER SYSTEM SET wal_level = logical"
@@ -61,7 +61,7 @@ jobs:
   ui:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev,mysql,s3,mongodb,delta]"
@@ -76,7 +76,7 @@ jobs:
     defaults:
       run: {working-directory: cloudflare}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with: {node-version: "22", cache: npm, cache-dependency-path: cloudflare/package-lock.json}
       - run: npm ci
@@ -88,7 +88,7 @@ jobs:
   docker:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build the image
         run: docker build -t tessera:ci .
       - name: Start it and wait for readiness

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "tessera"
 version = "1.7.0"
 description = "Open-source, self-hosted data platform: connectors and streaming, pipelines, data quality, privacy, semantic models, dashboards, executive briefs, AI agents and an MCP server."
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Vipin Thomas" }]
 requires-python = ">=3.11"
 keywords = ["data-platform", "data-quality", "duckdb", "business-intelligence", "dashboards", "etl", "streaming", "kafka",
@@ -18,7 +19,6 @@ classifiers = [
   "Framework :: FastAPI",
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
@@ -77,10 +77,11 @@ dev = ["pytest>=8", "moto[s3,kinesis]>=5", "playwright>=1.44", "aiosmtpd>=1.4", 
 tessera = "tessera.cli:main"
 
 [tool.setuptools]
-packages = ["tessera"]
+packages = ["tessera", "tessera.static", "tessera.static.fonts"]
 
 [tool.setuptools.package-data]
-tessera = ["static/*", "static/fonts/*"]
+"tessera.static" = ["*"]
+"tessera.static.fonts" = ["*"]
 
 [tool.bandit]
 # B608: SQL is built only from quoted identifiers (qi) or code constants; every value is a bound parameter, and
