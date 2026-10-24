@@ -29,7 +29,7 @@ classifiers = [
 ]
 dependencies = [
   "fastapi>=0.110",
-  "uvicorn>=0.29",
+  "uvicorn>=0.54.0",
   "python-multipart>=0.0.9",
   "duckdb>=1.1,<3",
   "pyarrow>=15",
