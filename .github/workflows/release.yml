@@ -16,7 +16,10 @@ jobs:
       - uses: actions/setup-python@v7
         with: {python-version: "3.12"}
       - run: pip install build && python -m build
-      - run: python scripts/build_artifact.py dist/tessera-landing.html
+      - name: Build the standalone landing page (needs Tessera installed)
+        run: |
+          pip install dist/*.whl
+          python scripts/build_artifact.py dist/tessera-landing.html
       - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
