@@ -279,7 +279,7 @@ class Mirror:
         try:
             cur.register(v, t)
             sel = ", ".join(f"TRY_CAST({qi(c)} AS {ty}) AS {qi(c)}" for c, ty in types.items())
-            return arrow_table(cur.execute(f"SELECT {sel}, {qi(DELETED)} FROM {v}"))
+            return arrow_table(cur.sql(f"SELECT {sel}, {qi(DELETED)} FROM {v}"))
         finally:
             cur.unregister(v)
             cur.close()
@@ -366,7 +366,7 @@ class Mirrors:
             try:
                 m.drop_slot()
             except MirrorError:
-                pass
+                pass  # the start already failed; the original error is the one to report
             self.p.store.exec("DELETE FROM mirrors WHERE id=?", (mid,))
             raise MirrorError(str(e)) from None
         self.ensure_thread()

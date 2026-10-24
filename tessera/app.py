@@ -21,7 +21,7 @@ from .config import Settings
 from .connectors import ConnectorError
 from .orchestrator import STEP_TYPES, Orchestrator, PipelineError, next_run, validate
 from .platform import NotFound, Platform
-from .security import ROLE_HELP, ROLES, has_role, hash_password, new_token, password_problem, restricted, token_hash, verify_password
+from .security import ROLE_HELP, ROLES, has_role, hash_password, new_token, password_problem, restricted, token_hash, valid_email, verify_password
 from .store import now
 from .warehouse import AccessDenied, QueryError
 
@@ -166,7 +166,7 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
         if not secrets.compare_digest(str(b.get("setup_code", "")).strip().upper(), code):
             raise HTTPException(403, "Setup code is incorrect. It is printed in the server console and saved in setup-code.txt in the data folder.")
         email, name, pw = body_get(b, "email").strip().lower(), body_get(b, "name").strip(), body_get(b, "password")
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        if not valid_email(email):
             raise HTTPException(400, "Enter a valid email address.")
         if p := password_problem(pw, email):
             raise HTTPException(400, p)
@@ -256,7 +256,7 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
         role = b.get("role", "viewer")
         if role not in ROLES:
             raise HTTPException(400, "Unknown role.")
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        if not valid_email(email):
             raise HTTPException(400, "Enter a valid email address.")
         if store.one("SELECT id FROM users WHERE email=?", (email,)):
             raise HTTPException(409, "A user with that email already exists.")

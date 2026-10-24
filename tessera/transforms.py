@@ -73,7 +73,7 @@ def compile_steps(source: str, steps: list[dict]) -> str:
                     try:
                         v, num = float(v), True
                     except (TypeError, ValueError):
-                        pass
+                        pass  # not a number: compare as text
                 cond = f"{col} {o} {sql_literal(v)}" if num else f"CAST({col} AS VARCHAR) {o} {sql_literal(str(v))}"
             body = f"SELECT * FROM {prev} WHERE {cond}"
         elif op == "dedupe":

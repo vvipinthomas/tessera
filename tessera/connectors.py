@@ -11,6 +11,7 @@ import importlib.util
 import io
 import ipaddress
 import json
+import math
 import re
 import socket
 from pathlib import Path
@@ -208,7 +209,7 @@ def read_bytes_or_path(src: str | bytes, fmt: str, name: str) -> pa.Table:
             df = pd.read_excel(io.BytesIO(src) if isinstance(src, bytes) else src)
             for c in df.columns:
                 if df[c].dtype == object:
-                    df[c] = df[c].map(lambda v: None if v is None or (isinstance(v, float) and v != v) else str(v))
+                    df[c] = df[c].map(lambda v: None if v is None or (isinstance(v, float) and math.isnan(v)) else str(v))
             df.columns = [str(c) for c in df.columns]
             return pa.Table.from_pandas(df, preserve_index=False)
     except (pa.ArrowInvalid, ValueError, json.JSONDecodeError) as e:

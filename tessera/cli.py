@@ -27,7 +27,8 @@ class _JsonFormatter(logging.Formatter):
         msg = r.getMessage()
         if r.name == "tessera.access":
             try:
-                return msg if json.loads(msg) else msg
+                json.loads(msg)  # access lines are already JSON: pass them through unchanged
+                return msg
             except ValueError:
                 pass
         out = {"ts": self.formatTime(r), "level": r.levelname, "logger": r.name, "msg": msg}

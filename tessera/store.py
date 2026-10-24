@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import threading
@@ -154,6 +155,16 @@ JSON_COLS = {"config", "tags", "columns", "meta", "params", "sample", "steps", "
              "joins", "dimensions", "measures", "condition", "channels", "recipients", "filters", "cells", "synonyms", "spec", "attributes", "state", "members", "tables", "keys"}
 
 
+def local_today():
+    """Today's date in TESSERA_TIMEZONE, the same zone schedules use (not the server clock's zone)."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    try:
+        zone = ZoneInfo(os.environ.get("TESSERA_TIMEZONE") or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = timezone.utc
+    return datetime.now(zone).date()
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
@@ -197,7 +208,7 @@ class Store:
                 try:
                     d[k] = json.loads(d[k])
                 except ValueError:
-                    pass
+                    pass  # not JSON after all: return the stored text unchanged
         return d
 
     @staticmethod

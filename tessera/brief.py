@@ -14,6 +14,7 @@ import math
 from datetime import date, timedelta
 
 from . import insights as ins
+from .store import local_today
 from .warehouse import QueryError
 
 RHO = 0.5  # assumed correlation between forecast errors in different periods, for the full-year range
@@ -72,7 +73,7 @@ def segments(plat, user, model, mname, dim, filters, td, grain, periods: list[st
 
 def measure_brief(plat, user, model, mname, grain="month", filters=None, today: date | None = None, targets: dict | None = None,
                   fy_month: int = 1) -> dict:
-    today = today or date.today()
+    today = today or local_today()
     m = ins.measure(model, mname)
     td = ins.time_dim(model)
     filters = [f for f in (filters or []) if not ins._is_time_filter(model, f)]
@@ -184,7 +185,7 @@ def measure_brief(plat, user, model, mname, grain="month", filters=None, today: 
             ex = ins.explain_change(plat, user, model, mname, grain, filters, current=last["period"], baseline=ly["period"], top=3)
             out["drivers"] = {"summary": ex["summary"], "dimensions": ex["dimensions"][:2], "additive": ex["additive"], "baseline": ex["baseline"]["label"]}
         except QueryError:
-            pass
+            pass  # the brief still works without drivers when the comparison query fails
 
     # segments gaining and losing over the last 12 complete periods
     seg_periods = [p["period"] for p in pts[-min(len(pts), py):]]
@@ -271,7 +272,7 @@ def brief(plat, user, model, measures, grain="month", filters=None, today=None, 
     heads.sort(key=lambda h: (kinds.get(h["kind"], 9), measures.index(h["measure"]), sev[h["severity"]]))
     for i, h in enumerate(heads):
         h["id"] = f"H{i + 1}"
-    return {"model_id": model.get("id"), "model": model["name"], "grain": grain, "as_of": (today or date.today()).isoformat(),
+    return {"model_id": model.get("id"), "model": model["name"], "grain": grain, "as_of": (today or local_today()).isoformat(),
             "fiscal_year_start_month": fy_month, "measures": items, "headlines": heads, "errors": errors, "methods": __doc__.strip()}
 
 
@@ -317,7 +318,7 @@ def dashboard_brief(plat, user, d: dict, filters=None, grain="month", today=None
     for i, h in enumerate(heads):
         h["id"] = f"H{i + 1}"
     return {"dashboard": d["name"], "dashboard_id": d["id"], "sections": sections, "headlines": heads, "errors": errors,
-            "as_of": (today or date.today()).isoformat(), "fiscal_year_start_month": fy, "methods": __doc__.strip()}
+            "as_of": (today or local_today()).isoformat(), "fiscal_year_start_month": fy, "methods": __doc__.strip()}
 
 
 def email_html(b: dict) -> str:

@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 from conftest import Client, add_user
-from test_reporting import Inbox, smtp  # noqa: F401  (fixture)
+from test_reporting import smtp  # noqa: F401  (fixture)
 
 from tessera import insights
 

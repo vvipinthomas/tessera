@@ -137,3 +137,38 @@ def test_rls_fails_closed_if_the_rewrite_is_lost(tmp_path):
     assert "__rls_t" in wh.apply_rls("SELECT * FROM serving.t", rls, cur)
     with pytest.raises(AccessDenied, match="could not be applied"):
         wh.apply_rls("SELECT * FROM serving.t", rls, LosesRewrite(cur))
+
+
+def test_email_check_is_strict_and_fast():
+    import time
+
+    from tessera.security import valid_email
+    for e in ("a@b.co", "first.last+tag@sub.example.ca"):
+        assert valid_email(e), e
+    for e in ("a@b", "a b@c.d", "a@b..c", "a@b.c,d@e.f", "@b.co", "x" * 250 + "@b.co", None):
+        assert not valid_email(e), e
+    t = time.perf_counter()
+    assert not valid_email("a@" + "!." * 20000)
+    assert time.perf_counter() - t < 0.5, "no catastrophic backtracking"
+
+
+def test_today_follows_the_configured_time_zone(monkeypatch):
+    from tessera.store import local_today
+    monkeypatch.setenv("TESSERA_TIMEZONE", "Pacific/Kiritimati")  # UTC+14
+    ahead = local_today()
+    monkeypatch.setenv("TESSERA_TIMEZONE", "Pacific/Pago_Pago")  # UTC-11: always a different calendar day
+    behind = local_today()
+    assert (ahead - behind).days == 1
+    monkeypatch.setenv("TESSERA_TIMEZONE", "Not/AZone")
+    assert local_today()  # falls back to UTC
+
+
+def test_readiness_does_not_leak_error_details(app, monkeypatch):
+    from conftest import Client
+
+    def boom(*a, **k):
+        raise RuntimeError("disk I/O error at /secret/path/tessera.db")
+    monkeypatch.setattr(app.state.platform.store, "scalar", boom)
+    with Client(app) as c:
+        r = c.get("/api/ready")
+    assert r.status_code == 503 and r.json()["checks"]["metadata"] == "unavailable" and "/secret" not in r.text

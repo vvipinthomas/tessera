@@ -33,7 +33,7 @@ def export_bundle(p) -> dict:
                 try:
                     cfg[k] = str(Path(v).resolve().relative_to(up))
                 except ValueError:
-                    pass
+                    pass  # outside the uploads folder: keep the absolute path as configured
         return cfg
     out["connections"] = [{"name": c["name"], "type": c["type"], "config": portable(c["config"]),
                            "secret_fields": [f["key"] for f in connectors.CONNECTOR_TYPES.get(c["type"], {}).get("fields", []) if f.get("secret")]}

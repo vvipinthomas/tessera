@@ -6,10 +6,20 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+# One email check for the whole app. The domain is dot-separated labels, so the pattern cannot backtrack
+# polynomially, and addresses longer than 254 characters (the SMTP limit) are refused before matching.
+EMAIL_RE = re.compile(r"[^\s@,;]+@[^\s@,;.]+(?:\.[^\s@,;.]+)+")
+
+
+def valid_email(value: str) -> bool:
+    return isinstance(value, str) and len(value) <= 254 and EMAIL_RE.fullmatch(value) is not None
+
 
 ROLES = ("viewer", "analyst", "engineer", "admin")
 RANK = {r: i for i, r in enumerate(ROLES)}
@@ -87,7 +97,7 @@ class Vault:
                 try:
                     os.chmod(kp, 0o600)
                 except OSError:
-                    pass
+                    pass  # filesystems without permissions (some Windows and network mounts) still work
         if len(key) != 32:
             raise ValueError("TESSERA_MASTER_KEY must be 32 bytes, base64 encoded")
         self._aes = AESGCM(key)

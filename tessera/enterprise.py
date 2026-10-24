@@ -31,6 +31,7 @@ from .security import RANK, ROLES, token_hash
 from .store import now
 
 access_log = logging.getLogger("tessera.access")
+log = logging.getLogger("tessera")
 # Structured access logs are opt-in (TESSERA_LOG_JSON=1 turns them on and uvicorn's plain access log off).
 access_log.setLevel(logging.INFO if os.environ.get("TESSERA_LOG_JSON", "").lower() in ("1", "true", "yes") else logging.WARNING)
 SCIM_USER = "urn:ietf:params:scim:schemas:core:2.0:User"
@@ -264,13 +265,15 @@ def register(app, plat, user, need, audit):
         try:
             store.scalar("SELECT 1")
             checks["metadata"] = "ok"
-        except Exception as e:  # noqa: BLE001
-            checks["metadata"] = str(e)
+        except Exception:  # noqa: BLE001 - details go to the log; this endpoint needs no sign-in
+            log.exception("readiness check failed: metadata")
+            checks["metadata"] = "unavailable"
         try:
             plat.wh.internal("SELECT 1")
             checks["warehouse"] = "ok"
-        except Exception as e:  # noqa: BLE001
-            checks["warehouse"] = str(e)
+        except Exception:  # noqa: BLE001 - details go to the log; this endpoint needs no sign-in
+            log.exception("readiness check failed: warehouse")
+            checks["warehouse"] = "unavailable"
         ok = all(v == "ok" for v in checks.values())
         return JSONResponse({"ready": ok, "checks": checks, "version": __version__}, status_code=200 if ok else 503)
 

@@ -25,7 +25,7 @@ def _digits(v: str) -> str:
 
 DETECTORS = [
     {"key": "email", "label": "Email address", "level": "confidential", "mask": "hash",
-     "test": lambda v: bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}", v))},
+     "test": lambda v: len(v) <= 254 and bool(re.fullmatch(r"[^\s@]+@(?:[^\s@.]+\.)+[A-Za-z]{2,}", v))},
     {"key": "ca_sin", "label": "Canadian SIN", "level": "restricted", "mask": "partial",
      "test": lambda v: bool(re.fullmatch(r"\d{3}[- ]?\d{3}[- ]?\d{3}", v)) and _digits(v)[0] not in "08" and luhn(_digits(v))},
     {"key": "us_ssn", "label": "US SSN", "level": "restricted", "mask": "partial",

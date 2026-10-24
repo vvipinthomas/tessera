@@ -6,7 +6,7 @@ import json
 import random
 from datetime import date, timedelta
 
-from .store import now
+from .store import local_today, now
 
 
 def luhn_ok(d: str) -> bool:
@@ -59,7 +59,7 @@ def generate(folder, n_customers: int = 800, n_orders: int = 9000, seed: int = 7
         w.writerow(["order_id", "customer_id", "order_date", "status", "channel", "product_category", "quantity", "unit_price", "order_total", "card_number"])
         # Three years of history from the first of a month: about 1.4% monthly growth, a holiday peak and a
         # January dip, and mobile steadily taking share from stores, so trends, YoY and forecasts have something to find.
-        today = date.today()
+        today = local_today()
         start = date(today.year - 3, today.month, 1)
         days = [start + timedelta(days=k) for k in range((today - start).days)]
         season = {1: 0.82, 2: 0.86, 3: 0.95, 4: 0.98, 5: 1.0, 6: 0.97, 7: 0.95, 8: 0.98, 9: 1.0, 10: 1.05, 11: 1.3, 12: 1.45}
@@ -84,11 +84,11 @@ def generate(folder, n_customers: int = 800, n_orders: int = 9000, seed: int = 7
             d = dates[i]
             t = (d - start).days / span
             if r.random() < 0.004:
-                d = date.today() + timedelta(days=r.randint(20, 300))
+                d = local_today() + timedelta(days=r.randint(20, 300))
             status = r.choices(["paid", "shipped", "refunded", "pending"], [50, 35, 7, 8])[0]
             if r.random() < 0.006:
                 status = r.choice(["PAID ", "shiped", "unknown"])
-            w.writerow([oid, f"C{100000 + r.randint(0, n_customers - 1)}", min(d, date.today() + timedelta(days=400)).isoformat(), status,
+            w.writerow([oid, f"C{100000 + r.randint(0, n_customers - 1)}", min(d, local_today() + timedelta(days=400)).isoformat(), status,
                         r.choices(["web", "store", "mobile", "partner"], [45, 34 - 18 * t, 16 + 18 * t, 5])[0], cat, q, price, total, card()])
 
 
@@ -172,7 +172,7 @@ def install(platform, orch, user: dict) -> dict:
 
     # a full-year revenue target 15% above last year's actuals, so the executive brief has something to measure against
     try:
-        yr = date.today().year
+        yr = local_today().year
         last = platform.run_model(user, {**model, "id": mid}, {"measures": ["revenue"], "filters": [
             {"field": "order_date", "op": "between", "value": [f"{yr - 1}-01-01", f"{yr - 1}-12-31"]}]})["rows"][0][0]
         if last:
@@ -186,7 +186,7 @@ def install(platform, orch, user: dict) -> dict:
     def mq(name, spec, viz):
         return s.insert("queries", {"name": name, "kind": "model", "model_id": mid, "spec": json.dumps(spec), "sql": "", "viz": json.dumps(viz),
                                     "created_by": user["email"], "created_at": now(), "updated_at": now()})
-    not_future = [{"field": "order_date", "op": "<=", "value": date.today().isoformat()}]
+    not_future = [{"field": "order_date", "op": "<=", "value": local_today().isoformat()}]
     ids = [
         mq("Revenue", {"measures": ["revenue"], "filters": not_future}, {"type": "kpi"}),
         mq("Orders", {"measures": ["orders"], "filters": not_future}, {"type": "kpi"}),

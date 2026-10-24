@@ -353,6 +353,7 @@ def main():
         srv.wait(timeout=10)
         logf.seek(0)
         out = logf.read()
+        logf.close()
         if "Traceback" in out:
             problems.append("server traceback:\n" + out[-3000:])
     if problems:

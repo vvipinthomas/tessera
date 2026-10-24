@@ -13,12 +13,11 @@ from . import bundle, connectors, semantic, transforms
 from . import workspaces as ws
 from .platform import NotFound
 from .reporting import ALERT_OPS, ALERT_SOURCES, Reporter, ReportError, dashboard_results, to_csv, to_xlsx, validate_cron
-from .security import has_role, restricted
+from .security import has_role, restricted, valid_email
 from .store import now
 from .warehouse import AccessDenied, QueryError, split_fqn
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-EMAIL = re.compile(r"^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$")
 
 
 def file_response(data: bytes, name: str, fmt: str) -> Response:
@@ -154,7 +153,7 @@ def register(app, plat, orch, user, need, audit):
         rec = b.get("recipients", old.get("recipients") or [])
         if isinstance(rec, str):
             rec = [x.strip() for x in re.split(r"[,;\s]+", rec) if x.strip()]
-        if not rec or not all(EMAIL.match(r) for r in rec):
+        if not rec or not all(valid_email(r) for r in rec):
             raise HTTPException(400, "Enter one or more valid email addresses.")
         sched = b.get("schedule", old.get("schedule") or "0 8 * * 1")
         validate_cron(sched)
@@ -243,7 +242,7 @@ def register(app, plat, orch, user, need, audit):
         ch = b.get("channels", old.get("channels") or {"inapp": True})
         if isinstance(ch.get("email"), str):
             ch["email"] = [x.strip() for x in re.split(r"[,;\s]+", ch["email"]) if x.strip()]
-        if ch.get("email") and not all(EMAIL.match(e) for e in ch["email"]):
+        if ch.get("email") and not all(valid_email(e) for e in ch["email"]):
             raise HTTPException(400, "Alert email addresses are not valid.")
         if ch.get("webhook") and not str(ch["webhook"]).startswith(("http://", "https://")):
             raise HTTPException(400, "Webhook must be an http(s) URL.")

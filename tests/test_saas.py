@@ -258,8 +258,6 @@ def test_jira_without_a_filter_and_custom_jql():
 
 
 def test_salesforce_merge_keeps_one_row_per_record(admin):
-    state = {"phase": 1}
-
     def handler(req):
         if req.method == "POST":
             return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})

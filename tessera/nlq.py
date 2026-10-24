@@ -12,6 +12,7 @@ import re
 from datetime import date, timedelta
 
 from .semantic import _add_months
+from .store import local_today
 
 STOP = {"what", "is", "was", "were", "are", "the", "a", "an", "of", "for", "in", "on", "to", "show", "me", "give", "how", "much", "many",
         "did", "do", "does", "we", "our", "my", "and", "with", "per", "by", "over", "at", "please", "list", "see", "chart", "graph", "plot",
@@ -84,7 +85,7 @@ def _phrases(item: dict, extra: list[str] | None = None) -> list[str]:
 def parse(question: str, model: dict, values: dict[str, list[str]] | None = None, synonyms: dict[str, list[str]] | None = None,
           today: date | None = None) -> dict:
     """values: dimension name -> known member values. synonyms: measure/dimension name -> extra phrases."""
-    today = today or date.today()
+    today = today or local_today()
     values = values or {}
     synonyms = synonyms or {}
     raw = question.strip()

@@ -37,7 +37,7 @@ def test_config_from_env():
     assert cloud.config_from_env({}) is None
     c = cloud.config_from_env({"TESSERA_CLOUD_BUCKET": "b", "TESSERA_CLOUD_PREFIX": "acme", "TESSERA_CLOUD_BACKUP_MINUTES": "0.1",
                                "TESSERA_CLOUD_ENDPOINT": "https://abc.r2.cloudflarestorage.com"})
-    assert c["prefix"] == "acme/" and c["minutes"] == 1.0 and c["region"] == "auto" and c["endpoint"].endswith("r2.cloudflarestorage.com")
+    assert c["prefix"] == "acme/" and c["minutes"] == 1.0 and c["region"] == "auto" and c["endpoint"] == "https://abc.r2.cloudflarestorage.com"
 
 
 def test_backup_restore_roundtrip_on_a_fresh_disk(tmp_path, bucket):

@@ -49,7 +49,7 @@ def read_published(plat, dataset: str) -> tuple[str, str, pa.Table]:
         raise DeliveryError(f"serving.{name} does not exist. Run its publish step first.")
     cur = plat.wh.cursor()
     try:
-        return schema, name, arrow_table(cur.execute(f"SELECT * FROM {qi(schema)}.{qi(name)}"))
+        return schema, name, arrow_table(cur.sql(f"SELECT * FROM {qi(schema)}.{qi(name)}"))
     finally:
         cur.close()
 

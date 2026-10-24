@@ -326,7 +326,7 @@ def t_update_description(ctx: Ctx, a: dict):
             ctx.p.set_column(d["id"], col, {"description": desc})
             changed.append(col)
         except NotFound:
-            pass
+            pass  # the column was dropped since the agent looked; nothing to describe
     ctx.p.store.audit(ctx.user, "agent.update_description", f"{d['schema_name']}.{d['name']}", {"columns": changed})
     return {"updated_table_description": bool(a.get("description")), "updated_columns": changed}
 

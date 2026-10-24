@@ -24,6 +24,7 @@ import re
 from datetime import date, timedelta
 
 from .semantic import GRAINS, _add_months
+from .store import local_today
 from .warehouse import QueryError
 
 MAX_DIMS = 8
@@ -385,7 +386,7 @@ def series(plat, user, model: dict, mname: str, grain: str = "month", filters: l
     m = measure(model, mname)
     res = plat.run_model(user, model, {"measures": [mname], "dimensions": [td["name"]], "grains": {td["name"]: grain},
                                        "filters": filters or [], "limit": 5000})
-    today = today or date.today()
+    today = today or local_today()
     pts, partial, future = [], None, 0
     for p, v in res["rows"]:
         if p is None:
@@ -623,7 +624,7 @@ def model_insights(plat, user, model: dict, measures: list[str] | None = None, g
                                       "text": ex["summary"], "data": {"dimension": ex["dimensions"][0]["dimension"], "members": ex["dimensions"][0]["members"],
                                                                      "additive": ex["additive"]}})
                 except QueryError:
-                    pass
+                    pass  # a driver fact is optional; other facts still stand
         if additive(m):
             for d in category_dims(model)[:4]:
                 c = concentration(by_dimension(plat, user, model, mn, d["name"], filters or []))
@@ -651,7 +652,7 @@ def analyze_result(model: dict, res: dict, forecast=None, anomalies: bool = Fals
         return None
     grain = dims[0].get("grain") or "month"
     horizon = 3 if forecast is True else max(0, min(int(forecast or 0), 24))
-    today = today or date.today()
+    today = today or local_today()
     out = {"grain": grain, "measure": meas[0]["name"]}
     pts = []
     for r in res["rows"]:

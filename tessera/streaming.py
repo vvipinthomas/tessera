@@ -438,7 +438,7 @@ def _cast_meta(t: pa.Table) -> pa.Table:
                         if not pa.types.is_null(col.type) else pa.nulls(len(col), pa.timestamp("ms"))
                     t = t.set_column(i, name, conv)
                 except (pa.ArrowInvalid, pa.ArrowNotImplementedError):
-                    pass
+                    pass  # not a timestamp: keep the column as it arrived
     for name in ("_key", "_partition", "_offset"):
         if name in t.column_names:
             i = t.column_names.index(name)

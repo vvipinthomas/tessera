@@ -5,7 +5,7 @@ from conftest import Client, add_user
 
 def test_demo_cycle_removes_exactly_the_demo(admin, app, settings):
     assert admin.get("/api/demo").json()["enabled"] is False
-    mine = admin.post("/api/queries", json={"name": "Mine", "sql": "select 1 as x"}).json()
+    admin.post("/api/queries", json={"name": "Mine", "sql": "select 1 as x"})
     r = admin.post("/api/demo")
     assert r.status_code == 200, r.text
     st = admin.get("/api/demo").json()

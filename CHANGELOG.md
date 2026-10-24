@@ -5,6 +5,20 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-24
+
+### Fixed
+- Release builds: the 1.7.0 release workflow could not build the standalone landing page, so no package files were
+  attached to the release. 1.7.1 attaches the wheel, the source package and the landing page.
+- Dates in executive briefs, insights, plain-English questions and the demo data now follow `TESSERA_TIMEZONE`, like
+  schedules do, instead of the server clock's zone.
+- `/api/ready` (which needs no sign-in) no longer returns internal error text; details go to the server log.
+- Email checks use one strict pattern with the 254-character limit, so long crafted input cannot slow the server.
+- Exports and deliveries stream from DuckDB without an extra in-memory copy on DuckDB 2.0.
+
+### Changed
+- CodeQL runs the security-and-quality query suite. Licence metadata follows PEP 639. GitHub Actions are current.
+
 ## [1.7.0] - 2026-10-16
 
 ### Added

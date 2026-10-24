@@ -40,9 +40,12 @@ class AccessDenied(QueryError):
 
 
 def arrow_table(result) -> pa.Table:
-    """A query result as an Arrow table, on DuckDB 1.x (fetch_arrow_table) and 2.x (to_arrow_table)."""
-    fn = getattr(result, "to_arrow_table", None) or result.fetch_arrow_table
-    return fn()
+    """A query result or relation as an Arrow table, on DuckDB 1.x and 2.x (the method was renamed)."""
+    for name in ("to_arrow_table", "fetch_arrow_table", "arrow"):
+        fn = getattr(result, name, None)
+        if fn:
+            return fn()
+    raise QueryError("This DuckDB version cannot return Arrow tables.")
 
 
 def qi(name: str) -> str:
@@ -469,8 +472,8 @@ class Warehouse:
 
     def arrow(self, schema: str, name: str, batch_rows: int = 100_000):
         cur = self.cursor()
-        res = cur.execute(f"SELECT * FROM {qi(schema)}.{qi(name)}")
-        fn = getattr(res, "to_arrow_reader", None) or res.fetch_record_batch  # DuckDB 2.x / 1.x
+        rel = cur.sql(f"SELECT * FROM {qi(schema)}.{qi(name)}")  # a relation streams batches without an extra copy
+        fn = getattr(rel, "to_arrow_reader", None) or rel.fetch_arrow_reader
         return fn(batch_rows)
 
     def summarize(self, schema: str, name: str) -> list[dict]:

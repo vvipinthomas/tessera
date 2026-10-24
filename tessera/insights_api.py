@@ -9,7 +9,7 @@ from fastapi import Body, Depends, HTTPException, Request
 from . import agents, insights
 from . import workspaces as ws
 from .security import restricted
-from .store import now
+from .store import local_today, now
 from .warehouse import QueryError
 
 
@@ -31,7 +31,7 @@ def register(app, plat, user, need, audit):
 
     def memo(kind, u, args, fn):
         """Cache heavy analyses per user and data version; any warehouse write invalidates them (wh.version changes)."""
-        key = json.dumps([kind, u["id"], u["role"], plat.wh.version, date.today().isoformat(), args], default=str, sort_keys=True)
+        key = json.dumps([kind, u["id"], u["role"], plat.wh.version, local_today().isoformat(), args], default=str, sort_keys=True)
         hit = memo_store.get(key)
         if hit and _time.monotonic() - hit[0] < 600:
             memo_store.move_to_end(key)
@@ -241,7 +241,7 @@ def register(app, plat, user, need, audit):
                 res = plat.run_model(u, m, {"dimensions": [d["name"]], "limit": 300})
                 vals[d["name"]] = [r[0] for r in res["rows"] if r[0] is not None]
             except QueryError:
-                pass
+                pass  # a dimension the person cannot read simply offers no values
         return vals, syn
 
     def answer(u, m, question, run=True, today=None):
