@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev]"
       - run: ruff check tessera tests scripts
@@ -43,7 +43,7 @@ jobs:
       TESSERA_TEST_PG: "host=127.0.0.1 port=5432 user=postgres dbname=postgres"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: {python-version: "${{ matrix.python }}", cache: pip}
       - uses: actions/setup-go@v7
         with: {go-version: "1.24", cache: false}  # the test broker is built by a script, there is no go.mod
@@ -62,12 +62,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev,mysql,s3,mongodb,delta]"
       - run: python -m playwright install --with-deps chromium
       - run: python tests/ui_smoke.py --shots ui-shots
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with: {name: ui-screenshots, path: ui-shots, if-no-files-found: ignore}
 
@@ -77,7 +77,7 @@ jobs:
       run: {working-directory: cloudflare}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with: {node-version: "22", cache: npm, cache-dependency-path: cloudflare/package-lock.json}
       - run: npm ci
       - run: npx tsc --noEmit
