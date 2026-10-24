@@ -100,7 +100,8 @@ Most applications need no new code: add a template to `TEMPLATES` in `tessera/sa
 
 ## Release process (maintainers)
 
-1. Update `CHANGELOG.md`, bump `version` in `pyproject.toml` and `tessera/__init__.py`.
+1. `python scripts/bump_version.py X.Y.Z` and add a `## [X.Y.Z]` section to `CHANGELOG.md`.
 2. `make check && python tests/ui_smoke.py`.
-3. Tag `vX.Y.Z` and push. The release workflow builds the package and the multi-architecture container image, and
-   publishes the GitHub release.
+3. Merge to `main`. The release workflow sees the new version, tags `vX.Y.Z`, attaches the wheel, source package and
+   landing page, publishes the multi-architecture image to `ghcr.io/vvipinthomas/tessera`, and then installs both as
+   an anonymous user to prove they work. The release notes come from the changelog section.

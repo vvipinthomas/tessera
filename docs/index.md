@@ -21,10 +21,13 @@ give everyone dashboards, executive briefs and AI answers they can trust.
 ## Install
 
 ```bash
-git clone https://github.com/vvipinthomas/tessera.git && cd tessera
-pip install -e ".[s3,kafka,mqtt,iceberg,sftp,delta,mongodb]"
-tessera serve        # http://127.0.0.1:8710
+docker run -d --name tessera -p 8710:8710 -v tessera-data:/data ghcr.io/vvipinthomas/tessera:latest
 ```
 
-or `docker compose up -d --build`. The console prints a one-time setup code; enter it in the browser and start in
+or with Python 3.11+:
+
+```bash
+pip install "https://github.com/vvipinthomas/tessera/releases/download/v1.7.1/tessera-1.7.1-py3-none-any.whl"
+tessera serve        # http://127.0.0.1:8710
+``` The console prints a one-time setup code; enter it in the browser and start in
 demo mode for a guided tour.

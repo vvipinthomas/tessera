@@ -1,9 +1,9 @@
-# Tessera on one machine. Start:  docker compose up -d --build
+# Tessera on one machine. Start:  docker compose up -d   (add --build to build from this source instead)
 # First run prints a one-time setup code:  docker compose logs tessera | grep "Setup code"
 services:
   tessera:
     build: .
-    image: ghcr.io/vvipinthomas/tessera:1.6.0
+    image: ghcr.io/vvipinthomas/tessera:1.7.1
     ports:
       - "8710:8710"
     volumes:

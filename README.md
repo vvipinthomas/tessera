@@ -77,9 +77,29 @@ Pick Tessera if you want one tool you own, that runs anywhere, with governance a
 need petabyte scale, hundreds of managed connectors and a service Microsoft runs for you. They also work together:
 Tessera reads from and delivers to Fabric, and Power BI reads Tessera's governed data.
 
+## Start in one minute
+
+With Docker (Linux, macOS or Windows; amd64 and arm64):
+
+```bash
+docker run -d --name tessera -p 8710:8710 -v tessera-data:/data ghcr.io/vvipinthomas/tessera:latest
+docker logs tessera 2>&1 | grep "Setup code"
+```
+
+Or with Python 3.11 or newer, from the latest release:
+
+```bash
+pip install "https://github.com/vvipinthomas/tessera/releases/download/v1.7.1/tessera-1.7.1-py3-none-any.whl"
+tessera serve
+```
+
+Open <http://localhost:8710>, enter the setup code, create your admin account and keep **Start in demo mode** ticked
+for a guided tour with sample data. (The `tessera` package on PyPI is an unrelated project; install from the release
+as shown.)
+
 ## Run it on your computer
 
-You need Python 3.11 or newer.
+To work from the source code, you need Python 3.11 or newer.
 
 ```bash
 git clone https://github.com/vvipinthomas/tessera.git
@@ -116,7 +136,7 @@ SQL Server also needs the Microsoft ODBC Driver 18 on the machine.
 
 ```bash
 git clone https://github.com/vvipinthomas/tessera.git && cd tessera
-docker compose up -d --build
+docker compose up -d                # uses the published image; add --build to build from this source instead
 docker compose logs tessera | grep "Setup code"
 ```
 

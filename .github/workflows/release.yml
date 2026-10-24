@@ -1,15 +1,49 @@
 name: Release
 
+# A release happens when the version in pyproject.toml changes on main: this workflow tags it (vX.Y.Z), attaches the
+# wheel, the source package and the standalone landing page, publishes the multi-architecture container image to
+# ghcr.io, and then checks, as an anonymous user, that both can be installed and started.
+# Pushing a vX.Y.Z tag by hand still works and rebuilds that release.
 on:
   push:
+    branches: [main]
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: |
+          version=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            test "${GITHUB_REF_NAME}" = "v$version" || { echo "::error::Tag ${GITHUB_REF_NAME} does not match version $version in pyproject.toml"; exit 1; }
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already released; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version $version: releasing."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   package:
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -20,12 +54,49 @@ jobs:
         run: |
           pip install dist/*.whl
           python scripts/build_artifact.py dist/tessera-landing.html
+      - name: Release notes from CHANGELOG.md
+        run: |
+          python3 - "${{ needs.version.outputs.version }}" > notes.md <<'EOF'
+          import re, sys
+          v = sys.argv[1]
+          text = open("CHANGELOG.md").read()
+          m = re.search(rf"^## \[{re.escape(v)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
+          body = m.group(1).strip() if m else ""
+          print(body)
+          print(f"""
+
+          ## Install
+
+          **Docker** (amd64 and arm64):
+
+          ```bash
+          docker run -d --name tessera -p 8710:8710 -v tessera-data:/data ghcr.io/vvipinthomas/tessera:{v}
+          docker logs tessera 2>&1 | grep "Setup code"
+          ```
+
+          **Python 3.11+:**
+
+          ```bash
+          pip install "https://github.com/vvipinthomas/tessera/releases/download/v{v}/tessera-{v}-py3-none-any.whl"
+          tessera serve
+          ```
+
+          Then open http://localhost:8710. Guides: [user guide](https://vvipinthomas.github.io/tessera/USER_GUIDE/) · [deploy](https://vvipinthomas.github.io/tessera/DEPLOY/)""".replace("\n          ", "\n"))
+          EOF
+          cat notes.md
       - uses: softprops/action-gh-release@v3
         with:
-          files: dist/*
+          tag_name: v${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Tessera ${{ needs.version.outputs.version }}
+          body_path: notes.md
           generate_release_notes: true
+          make_latest: "true"
+          files: dist/*
 
   image:
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -41,9 +112,13 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.version.outputs.version }}
             type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=Tessera
+            org.opencontainers.image.description=Open-source data platform you run yourself
+            org.opencontainers.image.licenses=Apache-2.0
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -53,3 +128,32 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true
           sbom: true
+
+  # Install both ways as a stranger would: no credentials, straight from the public release and registry.
+  verify:
+    needs: [version, package, image]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Container image pulls anonymously and becomes ready
+        run: |
+          docker logout ghcr.io || true
+          docker run -d --name tessera-check -p 8710:8710 ghcr.io/${{ github.repository }}:${{ needs.version.outputs.version }} \
+            || { echo "::error::The image could not be pulled without signing in. Make the package public: Packages → tessera → Package settings → Change visibility."; exit 1; }
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:8710/api/ready && exit 0; sleep 2; done
+          docker logs tessera-check; exit 1
+      - uses: actions/checkout@v7
+      - name: docker compose starts from the published image
+        run: |
+          docker rm -f tessera-check
+          docker compose up -d --no-build
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:8710/api/ready && { docker compose down; exit 0; }; sleep 2; done
+          docker compose logs; exit 1
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.12"}
+      - name: Wheel installs from the release and starts
+        run: |
+          v=${{ needs.version.outputs.version }}
+          python -m venv /tmp/t && /tmp/t/bin/pip install -q "https://github.com/${{ github.repository }}/releases/download/v$v/tessera-$v-py3-none-any.whl"
+          TESSERA_DATA_DIR=/tmp/td /tmp/t/bin/tessera serve --port 8711 > /tmp/serve.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8711/api/ready && exit 0; sleep 2; done
+          cat /tmp/serve.log; exit 1
