@@ -33,7 +33,8 @@ class Platform:
         try:
             self.wh.db.close()
         except Exception:  # noqa: BLE001
-            pass
+            pass  # the warehouse may already be closed
+        self.store.close()
 
     # ------------------------------------------------------------ governed querying
     def rls_for(self, user: dict) -> dict[str, str] | None:

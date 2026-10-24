@@ -181,6 +181,7 @@ class Store:
         self.path = str(path)
         self._local = threading.local()
         self.lock = threading.RLock()
+        self._opened: list[sqlite3.Connection] = []  # every per-thread connection, so close() can release them all
         with self.conn() as c:
             c.executescript(SCHEMA)
             for table, col, ddl in MIGRATIONS:
@@ -196,7 +197,20 @@ class Store:
             c.execute("PRAGMA foreign_keys=ON")
             c.execute("PRAGMA busy_timeout=30000")
             self._local.c = c
+            with self.lock:
+                self._opened.append(c)
         return c
+
+    def close(self) -> None:
+        """Close every connection this store opened, from any thread (each holds the database, WAL and shm files)."""
+        with self.lock:
+            opened, self._opened = self._opened, []
+            self._local = threading.local()
+        for c in opened:
+            try:
+                c.close()
+            except sqlite3.Error:
+                pass  # already closed, or busy in a thread that is shutting down
 
     @staticmethod
     def _row(r: sqlite3.Row | None) -> dict | None:

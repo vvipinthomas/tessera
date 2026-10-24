@@ -48,9 +48,33 @@ def do_setup(client, settings, sample=False):
     return r
 
 
+@pytest.fixture(autouse=True)
+def _close_apps_created_in_test():
+    """Close every Tessera platform a test creates, even when the test never ran the app's shutdown.
+
+    Each platform holds SQLite and DuckDB files open; without this, hundreds of tests leave thousands of files open,
+    and sockets then get descriptor numbers above 1024, which libraries that use select() (paho-mqtt) cannot handle.
+    Platforms made by module-scoped fixtures are created before this runs, so they stay open for their module."""
+    from tessera.platform import Platform
+    created, original = [], Platform.__init__
+
+    def tracking_init(self, *a, **kw):
+        original(self, *a, **kw)
+        created.append(self)
+    Platform.__init__ = tracking_init
+    try:
+        yield
+    finally:
+        Platform.__init__ = original
+        for p in created:
+            p.close()
+
+
 @pytest.fixture
 def app(settings):
-    return make_app(settings)
+    a = make_app(settings)
+    yield a
+    a.state.platform.close()  # release database files even when no client ran the app's shutdown
 
 
 @pytest.fixture

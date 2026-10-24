@@ -5,6 +5,11 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+- Shutting Tessera down now closes every metadata-database connection, from every thread, not only the warehouse.
+- Tests close every app they create. A full test run had accumulated more than 2,000 open files, which pushed
+  socket numbers past 1024 and broke the MQTT client library (it uses `select()`); CI failed on Python 3.13.
+
 ## [1.7.3] - 2026-10-24
 
 ### Fixed

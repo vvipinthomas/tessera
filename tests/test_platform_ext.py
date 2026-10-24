@@ -144,3 +144,28 @@ def test_store_migration_adds_columns(tmp_path):
     s = Store(p)
     q = s.one("SELECT * FROM queries")
     assert q["kind"] == "sql" and "model_id" in q
+
+
+def test_store_close_releases_connections_from_every_thread(tmp_path):
+    import os
+    import threading
+
+    from tessera.store import Store
+
+    def open_files():
+        return sum(1 for f in os.listdir("/proc/self/fd") if os.path.exists(f"/proc/self/fd/{f}")
+                   and str(tmp_path) in os.path.realpath(f"/proc/self/fd/{f}"))
+    if not os.path.isdir("/proc/self/fd"):
+        import pytest
+        pytest.skip("needs /proc")
+    st = Store(tmp_path / "m.db")
+    threads = [threading.Thread(target=lambda: st.scalar("SELECT 1")) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert open_files() >= 6, "one connection per thread"
+    st.close()
+    assert open_files() == 0
+    assert st.scalar("SELECT 1") == 1, "the store reopens on next use"
+    st.close()
