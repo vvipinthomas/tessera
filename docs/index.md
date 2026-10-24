@@ -27,7 +27,7 @@ docker run -d --name tessera -p 8710:8710 -v tessera-data:/data ghcr.io/vvipinth
 or with Python 3.11+:
 
 ```bash
-pip install "https://github.com/vvipinthomas/tessera/releases/download/v1.7.3/tessera-1.7.3-py3-none-any.whl"
+pip install "https://github.com/vvipinthomas/tessera/releases/download/v1.7.4/tessera-1.7.4-py3-none-any.whl"
 tessera serve        # http://127.0.0.1:8710
 ``` The console prints a one-time setup code; enter it in the browser and start in
 demo mode for a guided tour.

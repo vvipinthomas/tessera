@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Thomas
     given-names: Vipin
-version: 1.7.3
+version: 1.7.4
 date-released: 2026-10-24
 license: Apache-2.0
 repository-code: "https://github.com/vvipinthomas/tessera"

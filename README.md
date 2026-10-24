@@ -89,7 +89,7 @@ docker logs tessera 2>&1 | grep "Setup code"
 Or with Python 3.11 or newer, from the latest release:
 
 ```bash
-pip install "https://github.com/vvipinthomas/tessera/releases/download/v1.7.3/tessera-1.7.3-py3-none-any.whl"
+pip install "https://github.com/vvipinthomas/tessera/releases/download/v1.7.4/tessera-1.7.4-py3-none-any.whl"
 tessera serve
 ```
 

@@ -1,2 +1,2 @@
 """Tessera: local-first data quality, security, orchestration and analytics platform."""
-__version__ = "1.7.3"
+__version__ = "1.7.4"

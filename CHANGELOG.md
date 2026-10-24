@@ -5,6 +5,8 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-24
+
 ### Fixed
 - Shutting Tessera down now closes every metadata-database connection, from every thread, not only the warehouse.
 - Tests close every app they create. A full test run had accumulated more than 2,000 open files, which pushed
