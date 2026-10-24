@@ -125,7 +125,8 @@ def test_targets_crud_and_permissions(sample_env):
     assert any(x["measure"] == "units" for x in v.get(f"/api/models/{mid}/targets").json())
     b = c.post("/api/dashboards/1/brief", json={}).json()
     assert by_measure(b, "units")["target"]["probability"] > 0.99, "a tiny target is certain"
-    assert c.delete(f"/api/models/{mid}/targets/{t['id']}").status_code == 200
+    r = c.delete(f"/api/models/{mid}/targets/{t['id']}")
+    assert r.status_code == 200
     assert by_measure(c.post("/api/dashboards/1/brief", json={}).json(), "units").get("target") is None
 
 

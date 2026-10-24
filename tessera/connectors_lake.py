@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 import pyarrow as pa
 
-from .connectors import Connector, ConnectorError, _after, _within, concat, guard_url, read_bytes_or_path
+from .connectors_base import Connector, ConnectorError, _after, _within, concat, guard_url, read_bytes_or_path
 
 F = lambda key, label, **kw: {"key": key, "label": label, **kw}  # noqa: E731
 

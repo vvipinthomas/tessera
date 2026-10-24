@@ -1,7 +1,7 @@
 {
   "name": "tessera-cloudflare",
   "private": true,
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Tessera on Cloudflare: a Worker front door for the Tessera container, with data kept safe in R2.",
   "type": "module",
   "scripts": {

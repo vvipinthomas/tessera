@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from urllib.parse import quote
 
-from .connectors import ConnectorError
+from .connectors_base import ConnectorError
 
 F = lambda key, label, **kw: {"key": key, "label": label, **kw}  # noqa: E731
 

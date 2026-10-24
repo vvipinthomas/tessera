@@ -25,8 +25,9 @@ import time
 import pyarrow as pa
 
 from . import connectors
+from .errors import UserError, public_message
 from .store import now
-from .warehouse import arrow_table, qi
+from .warehouse import arrow_table, qi, safe_name
 
 log = logging.getLogger("tessera.mirror")
 
@@ -39,7 +40,7 @@ DELETED = "_tessera_deleted"
 TOAST = object()  # an unchanged large value the change log leaves out
 
 
-class MirrorError(Exception):
+class MirrorError(UserError):
     pass
 
 
@@ -132,8 +133,8 @@ def slot_name(mid: int) -> str:
     return f"tessera_mirror_{mid}"
 
 
-def _target(prefix: str, table: str) -> str:
-    from .connections_api import safe_name
+def mirror_target(prefix: str, table: str) -> str:
+    """The raw table a mirrored source table lands in (public.orders -> orders, sales.orders -> sales_orders)."""
     sc, _, t = table.rpartition(".")
     return prefix + safe_name(t if sc in ("", "public") else f"{sc}_{t}")
 
@@ -152,7 +153,7 @@ class Mirror:
         return cx, cx.engine().execution_options(isolation_level="AUTOCOMMIT")
 
     def target(self, table: str) -> str:
-        return _target(self.row["prefix"], table)
+        return mirror_target(self.row["prefix"], table)
 
     def check(self, cx, conn) -> None:
         from sqlalchemy import text
@@ -368,7 +369,7 @@ class Mirrors:
             except MirrorError:
                 pass  # the start already failed; the original error is the one to report
             self.p.store.exec("DELETE FROM mirrors WHERE id=?", (mid,))
-            raise MirrorError(str(e)) from None
+            raise MirrorError(public_message(e)) from None
         self.ensure_thread()
         return self.get(mid)
 

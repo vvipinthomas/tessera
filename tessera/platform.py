@@ -11,12 +11,14 @@ import pyarrow.parquet as pq
 
 from . import connectors, pii, quality, semantic
 from .config import Settings
+from .errors import UserError
+from .notifications import notify
 from .security import Vault, restricted
 from .store import Store, now, parse_ts
 from .warehouse import SCHEMAS, QueryError, Warehouse, check_ident, jsonable, qi, split_fqn, sql_literal
 
 
-class NotFound(Exception):
+class NotFound(UserError):
     pass
 
 
@@ -232,7 +234,6 @@ class Platform:
         if downstream:
             body += f". Used by {', '.join(downstream[:6])}{' and more' if len(downstream) > 6 else ''}: check them."
         breaking = any(c["change"] != "added" for c in changes)
-        from .reporting import notify
         users = {u["id"] for u in self.store.all("SELECT id FROM users WHERE active=1 AND (role='admin' OR lower(email)=lower(?))", (d.get("owner") or "",))}
         for uid in users:
             notify(self, uid, f"Schema changed in {fqn}", body, f"#/catalog/{d['id']}", "warn" if breaking else "info")

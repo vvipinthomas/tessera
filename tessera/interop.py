@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 
 from . import connectors
 from .connectors import ConnectorError, _within
+from .errors import UserError
 from .store import now
 from .warehouse import QueryError, arrow_table, qi, split_fqn
 
@@ -35,7 +36,7 @@ TARGET = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]{0,127}(\.[A-Za-z_][A-Za-z0-9_$]{0,
 PATHLIKE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./=-]{0,255}$")
 
 
-class DeliveryError(Exception):
+class DeliveryError(UserError):
     pass
 
 

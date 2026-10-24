@@ -33,10 +33,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .errors import UserError
+
 log = logging.getLogger("tessera.cloud")
 
 
-class CloudStoreError(Exception):
+class CloudStoreError(UserError):
     pass
 
 

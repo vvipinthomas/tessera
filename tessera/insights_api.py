@@ -8,6 +8,7 @@ from fastapi import Body, Depends, HTTPException, Request
 
 from . import agents, insights
 from . import workspaces as ws
+from .errors import public_message
 from .security import restricted
 from .store import local_today, now
 from .warehouse import QueryError
@@ -112,7 +113,7 @@ def register(app, plat, user, need, audit):
             try:
                 out["narrative"] = insights.narrative(prov, facts)
             except agents.AgentError as e:
-                out["narrative_error"] = str(e)
+                out["narrative_error"] = public_message(e)
             audit(u, "insights.narrative", d["name"], {"facts": len(facts)}, request)
         return out
 
@@ -171,7 +172,7 @@ def register(app, plat, user, need, audit):
             try:
                 out["narrative"] = insights.narrative(app.state.provider_for(b.get("provider_id")), out["headlines"])
             except agents.AgentError as e:
-                out["narrative_error"] = str(e)
+                out["narrative_error"] = public_message(e)
             audit(u, "brief.narrative", d["name"], {"headlines": len(out["headlines"])}, request)
         return out
 

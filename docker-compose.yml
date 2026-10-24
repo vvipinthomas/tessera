@@ -3,7 +3,7 @@
 services:
   tessera:
     build: .
-    image: ghcr.io/vvipinthomas/tessera:1.7.1
+    image: ghcr.io/vvipinthomas/tessera:1.7.2
     ports:
       - "8710:8710"
     volumes:

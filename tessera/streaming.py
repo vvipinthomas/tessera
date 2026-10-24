@@ -25,7 +25,8 @@ from typing import Any
 
 import pyarrow as pa
 
-from .connectors import ConnectorError, guard_url, normalize_records
+from .connectors_base import ConnectorError, guard_url, normalize_records
+from .errors import UserError
 from .store import now
 from .warehouse import QueryError, qi, split_fqn
 
@@ -53,7 +54,7 @@ DEFAULTS = {"format": "json", "start": "earliest", "max_batch": 5000, "max_wait_
             "dedupe_key": None}
 
 
-class StreamError(Exception):
+class StreamError(UserError):
     pass
 
 

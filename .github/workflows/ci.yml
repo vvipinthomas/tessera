@@ -16,8 +16,8 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev]"
       - run: ruff check tessera tests scripts
@@ -42,10 +42,10 @@ jobs:
     env:
       TESSERA_TEST_PG: "host=127.0.0.1 port=5432 user=postgres dbname=postgres"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with: {python-version: "${{ matrix.python }}", cache: pip}
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with: {go-version: "1.24", cache: false}  # the test broker is built by a script, there is no go.mod
       - name: Turn on logical decoding for the mirroring tests
         run: |
@@ -61,13 +61,13 @@ jobs:
   ui:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev,mysql,s3,mongodb,delta]"
       - run: python -m playwright install --with-deps chromium
       - run: python tests/ui_smoke.py --shots ui-shots
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with: {name: ui-screenshots, path: ui-shots, if-no-files-found: ignore}
 
@@ -76,8 +76,8 @@ jobs:
     defaults:
       run: {working-directory: cloudflare}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with: {node-version: "22", cache: npm, cache-dependency-path: cloudflare/package-lock.json}
       - run: npm ci
       - run: npx tsc --noEmit
@@ -88,7 +88,7 @@ jobs:
   docker:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Build the image
         run: docker build -t tessera:ci .
       - name: Start it and wait for readiness

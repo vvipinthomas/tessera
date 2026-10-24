@@ -5,6 +5,23 @@ project uses [semantic versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-24
+
+### Fixed
+- All 46 open code-scanning findings (CodeQL security-and-quality), and the GitHub Actions findings:
+  - Error messages: only Tessera's own errors, written for people, reach API responses, OData, MCP clients and the AI
+    agents; anything unexpected shows a generic message and the details go to the server log (`tessera.errors`).
+  - The email check uses plain string rules instead of a regular expression, so it runs in linear time.
+  - Import cycles removed: shared connector helpers live in `connectors_base`, notifications in `notifications`, and
+    the platform is imported for type checking only where it is just a type.
+  - Tests no longer make API calls inside `assert` statements (they would be skipped under `python -O`).
+- Every GitHub Action is pinned to a commit, with its version in a comment for Dependabot.
+
+### Changed
+- Releases publish themselves when the version changes on `main`, and are then installed anonymously (Docker, Compose
+  and pip) to prove they work. `scripts/bump_version.py` sets the version everywhere.
+- CodeQL also scans the GitHub Actions workflows.
+
 ## [1.7.1] - 2026-10-24
 
 ### Fixed

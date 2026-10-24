@@ -20,6 +20,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from . import workspaces as ws
+from .errors import UserError, public_message
 from .warehouse import QueryError, qi
 
 
@@ -61,7 +62,7 @@ FUNCS = {"contains": "contains({0}, {1})", "startswith": "starts_with({0}, {1})"
          "tolower": "lower({0})", "toupper": "upper({0})", "year": "year({0})", "month": "month({0})", "day": "day({0})", "length": "length({0})"}
 
 
-class FilterError(ValueError):
+class FilterError(UserError, ValueError):
     pass
 
 
@@ -287,7 +288,7 @@ def register(app, plat, user, need, audit):
                     raise FilterError(f"Unknown property '{x}' in $select")
             order = " ORDER BY " + order_by(qp["$orderby"], alias) if qp.get("$orderby") else ""
         except FilterError as e:
-            return error(400, str(e))
+            return error(400, public_message(e))
         inner = f"SELECT {', '.join(f'{qi(c)} AS {qi(a)}' for a, c in alias.items())} FROM ({s['sql']}) AS __src"
         if count_only or qp.get("$count", "").lower() == "true":
             n = plat.user_query(u, f"SELECT count(*) FROM ({inner}) AS __t{where}", limit=1, params=params)["rows"][0][0]
@@ -310,7 +311,7 @@ def register(app, plat, user, need, audit):
         try:
             res = plat.user_query(u, sql, limit=take + 1, params=params)
         except QueryError as e:
-            return error(400, str(e))
+            return error(400, public_message(e))
         rows = res["rows"][:take]
         more = len(res["rows"]) > take and (remaining is None or take < remaining)
         out_cols = res["columns"]

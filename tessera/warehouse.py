@@ -25,18 +25,26 @@ from typing import Any
 import duckdb
 import pyarrow as pa
 
+from .errors import UserError
+
 SCHEMAS = ("raw", "curated", "serving")
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 SAFE_TABLE_FUNCS = {"range", "generate_series", "unnest"}
 RESTRICTED_FUNCS = re.compile(r"\b(duckdb_[a-z_]+|information_schema|pg_catalog|sqlite_master|pragma_[a-z_]+|current_setting|getenv)\b", re.I)
 
 
-class QueryError(Exception):
+class QueryError(UserError):
     pass
 
 
 class AccessDenied(QueryError):
     pass
+
+
+def safe_name(s: str) -> str:
+    """Turn any source name (a file, a table with spaces, an API object) into a valid table name."""
+    out = re.sub(r"[^A-Za-z0-9_]+", "_", s).strip("_").lower()
+    return ("t_" + out if out[:1].isdigit() else out)[:56] or "table"
 
 
 def arrow_table(result) -> pa.Table:

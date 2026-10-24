@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse, Response
 from . import __version__, agents
 from . import workspaces as ws
 from .auth import client_ip
+from .errors import UserError, public_message
 from .platform import NotFound
 from .security import has_role
 from .warehouse import QueryError
@@ -70,7 +71,7 @@ PROMPTS = {
 }
 
 
-class RpcError(Exception):
+class RpcError(UserError):
     def __init__(self, code: int, message: str):
         super().__init__(message)
         self.code = code
@@ -146,9 +147,9 @@ def register(app, plat, user, need, audit):
             result = dispatch(u, method, params, request)
             return {"jsonrpc": "2.0", "id": mid, "result": result}
         except RpcError as e:
-            return {"jsonrpc": "2.0", "id": mid, "error": {"code": e.code, "message": str(e)}}
+            return {"jsonrpc": "2.0", "id": mid, "error": {"code": e.code, "message": public_message(e)}}
         except (QueryError, NotFound, KeyError, ValueError) as e:
-            return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32602, "message": str(e).strip("'")}}
+            return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32602, "message": public_message(e, also=(KeyError, ValueError))}}
 
     def dispatch(u: dict, method: str, params: dict, request: Request):
         if method == "initialize":

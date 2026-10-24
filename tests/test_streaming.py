@@ -249,7 +249,8 @@ def test_kafka_missing_topic_reports_retrying(admin, app, kafka):
     assert "no_such_topic" in st["last_error"]
     produce(kafka, "clicks", [{"n": 10}])
     wait_for(lambda: count(admin, "raw.clicks") == 11)
-    assert admin.delete(f"/api/streams/{bad['id']}").status_code == 200
+    r = admin.delete(f"/api/streams/{bad['id']}")
+    assert r.status_code == 200
     admin.post(f"/api/streams/{s['id']}/stop")
 
 
@@ -412,7 +413,8 @@ def test_demo_feed_runs_and_is_removed_with_demo(admin, app):
     wait_for(lambda: count(admin, "raw.checkout_events") > 720, timeout=15)
     plan = admin.get("/api/demo/plan").json()
     assert plan["counts"].get("streams") == 1 and "raw.checkout_events" in plan["tables"]
-    assert admin.delete("/api/demo").status_code == 200
+    r = admin.delete("/api/demo")
+    assert r.status_code == 200
     assert admin.get("/api/streams").json() == []
     assert count(admin, "raw.checkout_events") == 0
     assert not app.state.streams.running(sid)

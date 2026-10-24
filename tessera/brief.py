@@ -14,6 +14,7 @@ import math
 from datetime import date, timedelta
 
 from . import insights as ins
+from .errors import public_message
 from .store import local_today
 from .warehouse import QueryError
 
@@ -265,7 +266,7 @@ def brief(plat, user, model, measures, grain="month", filters=None, today=None, 
         try:
             items.append(measure_brief(plat, user, model, mn, grain, filters, today, targets.get(mn), fy_month))
         except QueryError as e:
-            errors.append(str(e))
+            errors.append(public_message(e))
     sev = {"bad": 0, "warn": 1, "good": 2, "info": 3}
     kinds = {"landing": 0, "yoy": 1, "ytd": 2, "risk": 3, "momentum": 4, "pace": 5, "extreme": 6, "opportunity": 7}
     heads = [{**h, "measure": it["measure"]} for i, it in enumerate(items) for h in it["headlines"]]
@@ -313,7 +314,7 @@ def dashboard_brief(plat, user, d: dict, filters=None, grain="month", today=None
             flt = [{k: v for k, v in f.items() if k != "model_id"} for f in filters or [] if f.get("model_id") in (None, mid) and f.get("field") in dims]
             sections.append(brief(plat, user, m, meas[:max_measures], grain, flt, today, targets_for(store, mid), fy))
         except QueryError as e:
-            errors.append(str(e))
+            errors.append(public_message(e))
     heads = [{**h, "model_id": s["model_id"]} for s in sections for h in s["headlines"]]
     for i, h in enumerate(heads):
         h["id"] = f"H{i + 1}"

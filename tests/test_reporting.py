@@ -159,5 +159,6 @@ def test_alert_permissions(env):
     did = next(d["id"] for d in c.get("/api/datasets").json() if d["schema_name"] == "curated")
     assert a.post("/api/alerts", json={"name": "q", "source": {"type": "quality", "dataset_id": did}, "condition": {"op": "<", "threshold": 1}}).status_code == 403
     mine = c.post("/api/alerts", json={"name": "admin's", "source": {"type": "pipeline", "pipeline_id": 1}}).json()
-    assert a.delete(f"/api/alerts/{mine['id']}").status_code == 404
+    r = a.delete(f"/api/alerts/{mine['id']}")
+    assert r.status_code == 404
     assert a.get("/api/alerts").json() == []

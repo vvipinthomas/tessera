@@ -172,3 +172,16 @@ def test_readiness_does_not_leak_error_details(app, monkeypatch):
     with Client(app) as c:
         r = c.get("/api/ready")
     assert r.status_code == 503 and r.json()["checks"]["metadata"] == "unavailable" and "/secret" not in r.text
+
+
+def test_only_tessera_errors_reach_people():
+    from tessera.connectors import ConnectorError
+    from tessera.errors import GENERIC, public_message
+    from tessera.odata import FilterError
+    from tessera.warehouse import AccessDenied
+    assert public_message(ConnectorError("Connection refused by db.example.com:5432")) == "Connection refused by db.example.com:5432"
+    assert public_message(AccessDenied("Only published data")) == "Only published data"
+    assert public_message(FilterError("Unknown property 'x'\nmore")) == "Unknown property 'x'"
+    assert public_message(RuntimeError("disk I/O error at /var/lib/secret.db")) == GENERIC
+    assert public_message(KeyError("orders")) == GENERIC
+    assert public_message(KeyError("orders"), also=(KeyError,)) == "orders"

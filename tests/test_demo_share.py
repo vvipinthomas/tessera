@@ -25,7 +25,8 @@ def test_demo_cycle_removes_exactly_the_demo(admin, app, settings):
     assert admin.post("/api/sql", json={"sql": "select count(*) from serving.orders_enriched"}).status_code == 400
     assert not (settings.uploads_dir / "sample").exists()
     assert admin.get("/api/users").json() and admin.get("/api/demo").json()["enabled"] is False
-    assert admin.delete("/api/demo").status_code == 409
+    r = admin.delete("/api/demo")
+    assert r.status_code == 409
     # and it can come back
     assert admin.post("/api/demo").status_code == 200
     assert admin.get("/api/demo").json()["enabled"]
@@ -33,7 +34,8 @@ def test_demo_cycle_removes_exactly_the_demo(admin, app, settings):
 
 def test_demo_needs_admin(admin, app):
     v = add_user(admin, app, "demo.viewer@acme.ca", "analyst")
-    assert v.post("/api/demo").status_code == 403 and v.delete("/api/demo").status_code == 403
+    r = v.delete("/api/demo")
+    assert v.post("/api/demo").status_code == 403 and r.status_code == 403
     assert v.get("/api/demo").status_code == 200
 
 
@@ -67,7 +69,8 @@ def test_sharing_is_off_by_default_and_locked_links_narrow_data(shared):
     assert anon.get("/api/dashboards").status_code == 401, "a share token is not a session"
     links = c.get("/api/dashboards/1/shares").json()
     assert links[0]["views"] >= 1 and "token" not in links[0]
-    assert c.delete(f"/api/shares/{links[0]['id']}").status_code == 200
+    r = c.delete(f"/api/shares/{links[0]['id']}")
+    assert r.status_code == 200
     assert anon.get(f"/api/embed/{tok}").status_code == 404
 
 

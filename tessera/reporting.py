@@ -10,11 +10,17 @@ import smtplib
 import ssl
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from typing import TYPE_CHECKING
 
 from croniter import croniter
 
-from .platform import NotFound, Platform
+from .errors import UserError, public_message
+from .notifications import notify
+from .orchestrator import next_run
 from .store import now, parse_ts
+
+if TYPE_CHECKING:
+    from .platform import Platform
 
 log = logging.getLogger("tessera.reporting")
 ALERT_SOURCES = ("query", "model", "quality", "freshness", "pipeline")
@@ -22,7 +28,7 @@ ALERT_OPS = {">": lambda a, b: a > b, ">=": lambda a, b: a >= b, "<": lambda a, 
              "=": lambda a, b: a == b, "!=": lambda a, b: a != b}
 
 
-class ReportError(Exception):
+class ReportError(UserError):
     pass
 
 
@@ -110,7 +116,7 @@ def dashboard_results(p: Platform, user: dict, dashboard: dict, filters: list | 
             ws.require(p.store, user, q.get("workspace_id") or 1, "viewer")
             res = p.run_saved(user, q, {"filters": filters or []})
         except Exception as e:  # noqa: BLE001
-            res = {"error": str(e).split("\n")[0], "columns": [], "rows": []}
+            res = {"error": public_message(e), "columns": [], "rows": []}
         out.append((t.get("title") or q["name"], q, res))
     return out
 
@@ -181,16 +187,6 @@ class Mailer:
             raise ReportError(f"Email failed: {e}") from None
 
 
-# ---------------------------------------------------------------- notifications
-def notify(p: Platform, user_id: int, title: str, body: str = "", link: str | None = None, level: str = "info") -> None:
-    p.store.insert("notifications", {"user_id": user_id, "ts": now(), "level": level, "title": title[:200], "body": body[:2000], "link": link})
-
-
-def notify_admins(p: Platform, title: str, body: str = "", link: str | None = None, level: str = "info") -> None:
-    for u in p.store.all("SELECT id FROM users WHERE role='admin' AND active=1"):
-        notify(p, u["id"], title, body, link, level)
-
-
 # ---------------------------------------------------------------- reporter
 class Reporter:
     _last_purge: datetime | None = None
@@ -205,7 +201,6 @@ class Reporter:
         return self.http_factory() if self.http_factory else httpx.Client(timeout=15)
 
     def _next(self, cron: str, at: datetime) -> str:
-        from .orchestrator import next_run
         return next_run(cron, at)
 
     def link(self, path: str) -> str | None:
@@ -246,7 +241,7 @@ class Reporter:
             out = self.send_subscription(sub)
             status, detail = "sent", out
         except Exception as e:  # noqa: BLE001
-            status, detail = "failed", {"error": str(e)}
+            status, detail = "failed", {"error": public_message(e)}
             notify(self.p, sub["owner_id"], f"Subscription '{sub['name']}' failed", str(e), "#/dashboards/" + str(sub["dashboard_id"]), "bad")
         self.p.store.update("subscriptions", sub["id"], {"last_sent_at": now(), "last_status": status if status == "sent" else detail["error"][:300]})
         self.p.store.insert("deliveries", {"kind": "subscription", "ref_id": sub["id"], "ts": now(), "status": status, "detail": json.dumps(detail)})
@@ -304,7 +299,7 @@ class Reporter:
                     firing = ALERT_OPS[op](float(v), float(cond.get("threshold", 0)))
             new_state, err = ("firing" if firing else "ok"), None
         except Exception as e:  # noqa: BLE001
-            v, new_state, err = None, "error", str(e).split("\n")[0]
+            v, new_state, err = None, "error", public_message(e)
         prev = a["state"]
         p.store.update("alerts", a["id"], {"state": new_state, "last_value": json.dumps(v), "last_checked": now(), "last_error": err})
         changed = new_state != prev and not (prev == "unknown" and new_state == "ok")
@@ -387,4 +382,3 @@ def validate_cron(expr: str) -> None:
         raise ReportError(f"'{expr}' is not a valid cron expression (minute hour day month weekday).")
 
 
-_ = NotFound

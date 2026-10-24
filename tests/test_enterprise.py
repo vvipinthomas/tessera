@@ -42,9 +42,11 @@ def test_private_workspace_isolation(admin, app):
     assert b.post("/api/queries", json={"name": "x", "sql": "select 1", "workspace_id": w["id"]}).status_code == 404
     assert a.put(f"/api/workspaces/{w['id']}/members", json={"email": "ben@acme.ca", "role": "viewer"}).status_code == 200
     assert b.post(f"/api/queries/{qid}/run", json={}).status_code == 200
-    assert b.delete(f"/api/queries/{qid}").status_code == 403
+    r = b.delete(f"/api/queries/{qid}")
+    assert r.status_code == 403
     assert admin.post(f"/api/queries/{qid}/run", json={}).status_code == 200, "global admins see everything"
-    assert a.delete(f"/api/workspaces/{w['id']}").status_code == 409
+    r = a.delete(f"/api/workspaces/{w['id']}")
+    assert r.status_code == 409
     assert admin.put("/api/workspaces/1", json={"visibility": "private"}).status_code == 400
 
 
@@ -56,7 +58,8 @@ def test_saved_views(admin, app):
     admin.post(f"/api/dashboards/{d['id']}/views", json={"name": "Private admin", "state": {}})
     names = {x["name"] for x in v.get(f"/api/dashboards/{d['id']}/views").json()}
     assert names == {"BC only", "Shared"}
-    assert admin.delete(f"/api/dashboards/{d['id']}/views/{mine['id']}").status_code == 200
+    r = admin.delete(f"/api/dashboards/{d['id']}/views/{mine['id']}")
+    assert r.status_code == 200
 
 
 # ---------------------------------------------------------------- SCIM
@@ -109,7 +112,8 @@ def test_scim_okta_style_groups_map_roles_and_workspaces(scim, admin, app):
     roles = {x["email"]: x["role"] for x in admin.get("/api/users").json()}
     assert roles["fin@acme.ca"] == "viewer"
     assert "fin@acme.ca" not in {m["email"] for m in admin.get(f"/api/workspaces/{fin['id']}/members").json()}
-    assert scim.delete(f"/scim/v2/Groups/{g['id']}", csrf=False).status_code == 204
+    r = scim.delete(f"/scim/v2/Groups/{g['id']}", csrf=False)
+    assert r.status_code == 204
     assert {x["email"]: x["role"] for x in admin.get("/api/users").json()}["eng@acme.ca"] == "viewer"
     assert scim.get("/scim/v2/ServiceProviderConfig").json()["patch"]["supported"] is True
 
@@ -122,7 +126,8 @@ def test_scim_never_grants_admin_by_default(admin):
 def test_scim_delete_deactivates_and_revokes(scim, admin, app):
     u = scim_user(scim, "leaver@acme.ca")
     admin.put(f"/api/users/{next(x['id'] for x in admin.get('/api/users').json() if x['email'] == 'leaver@acme.ca')}", json={"password": "another strong pass 7"})
-    assert scim.delete(f"/scim/v2/Users/{u['id']}", csrf=False).status_code == 204
+    r = scim.delete(f"/scim/v2/Users/{u['id']}", csrf=False)
+    assert r.status_code == 204
     assert scim.get(f"/scim/v2/Users/{u['id']}").json()["active"] is False
     c = Client(app)
     assert c.post("/api/auth/login", json={"email": "leaver@acme.ca", "password": "another strong pass 7"}).status_code in (401, 403)
@@ -179,9 +184,11 @@ def test_sessions_list_and_revoke(admin, app):
     ss = admin.get("/api/sessions").json()
     assert len(ss) >= 2 and sum(s["current"] for s in ss) == 1
     victim = next(s for s in ss if not s["current"])
-    assert admin.delete(f"/api/sessions/{victim['id']}").status_code == 200
+    r = admin.delete(f"/api/sessions/{victim['id']}")
+    assert r.status_code == 200
     assert other.get("/api/auth/me").status_code == 401
-    assert admin.delete("/api/sessions/zzz").status_code == 400
+    r = admin.delete("/api/sessions/zzz")
+    assert r.status_code == 400
 
 
 def test_backup_restore_roundtrip(sample_env, tmp_path):

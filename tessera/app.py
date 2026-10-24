@@ -19,6 +19,7 @@ from . import workspaces as ws
 from .auth import COOKIE, OIDC, IPThrottle, client_ip, create_session, current_user, login, public_user
 from .config import Settings
 from .connectors import ConnectorError
+from .errors import public_message
 from .orchestrator import STEP_TYPES, Orchestrator, PipelineError, next_run, validate
 from .platform import NotFound, Platform
 from .security import ROLE_HELP, ROLES, has_role, hash_password, new_token, password_problem, restricted, token_hash, valid_email, verify_password
@@ -405,10 +406,8 @@ def create_app(settings: Settings | None = None, http_factory=None, start_schedu
     def test_connection(cid: int, u: dict = Depends(engineer)):
         try:
             msg, ok = plat.connector(cid).test(), True
-        except (ConnectorError, QueryError) as e:
-            msg, ok = str(e), False
-        except Exception as e:  # noqa: BLE001
-            msg, ok = f"{e.__class__.__name__}: {str(e).splitlines()[0] if str(e) else ''}", False
+        except Exception as e:  # noqa: BLE001 - any failure is reported as a failed test
+            msg, ok = public_message(e), False
         store.update("connections", cid, {"last_test_ok": int(ok), "last_test_msg": msg[:500], "last_test_at": now()})
         return {"ok": ok, "message": msg}
 

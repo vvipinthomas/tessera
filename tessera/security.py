@@ -6,19 +6,25 @@ import hashlib
 import hmac
 import json
 import os
-import re
 import secrets
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-# One email check for the whole app. The domain is dot-separated labels, so the pattern cannot backtrack
-# polynomially, and addresses longer than 254 characters (the SMTP limit) are refused before matching.
-EMAIL_RE = re.compile(r"[^\s@,;]+@[^\s@,;.]+(?:\.[^\s@,;.]+)+")
+_EMAIL_BAD = set(" \t\r\n\f\v,;")
 
 
 def valid_email(value: str) -> bool:
-    return isinstance(value, str) and len(value) <= 254 and EMAIL_RE.fullmatch(value) is not None
+    """One email check for the whole app: something@domain.tld, at most 254 characters (the SMTP limit), no spaces,
+    commas or semicolons, and a domain of non-empty dot-separated labels. Plain string checks, so it runs in linear
+    time whatever the input."""
+    if not isinstance(value, str) or not value or len(value) > 254 or any(ch in _EMAIL_BAD for ch in value):
+        return False
+    local, at, domain = value.partition("@")
+    if not at or not local or "@" in domain:
+        return False
+    labels = domain.split(".")
+    return len(labels) >= 2 and all(labels)
 
 
 ROLES = ("viewer", "analyst", "engineer", "admin")

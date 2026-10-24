@@ -3,14 +3,14 @@ schema drift."""
 from __future__ import annotations
 
 import json
-import re
 
 from fastapi import Body, Depends, HTTPException, Request
 
 from . import connectors, saas
-from .mirror import MirrorError, Mirrors, _target
+from .mirror import MirrorError, Mirrors, mirror_target
 from .orchestrator import PipelineError, next_run, validate
 from .store import now
+from .warehouse import safe_name
 
 # Column names that usually mean "this row last changed at", best first.
 CHANGE_COLUMNS = ["updated_at", "updatedat", "modified_at", "last_modified", "lastmodified", "last_modified_date",
@@ -50,11 +50,6 @@ def plan_table(info: dict | None, mode: str) -> tuple[str, dict]:
     return "replace", {}
 
 
-def safe_name(s: str) -> str:
-    out = re.sub(r"[^A-Za-z0-9_]+", "_", s).strip("_").lower()
-    return ("t_" + out if out[:1].isdigit() else out)[:56] or "table"
-
-
 def register(app, plat, user, need, audit, orch):
     store = plat.store
     engineer = need("engineer")
@@ -63,7 +58,7 @@ def register(app, plat, user, need, audit, orch):
     def mirror_out(m: dict) -> dict:
         c = store.one("SELECT name FROM connections WHERE id=?", (m["connection_id"],))
         return {**m, "connection": c["name"] if c else None,
-                "targets": [f"raw.{_target(m['prefix'], t)}" for t in m["tables"]]}
+                "targets": [f"raw.{mirror_target(m['prefix'], t)}" for t in m["tables"]]}
 
     @app.get("/api/mirrors")
     def list_mirrors(u: dict = Depends(engineer)):

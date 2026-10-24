@@ -91,9 +91,11 @@ class Es(BaseHTTPRequestHandler):
         Es.seen.append(("GET", self.path, self.headers.get("Authorization")))
         u = urlparse(self.path)
         if u.path == "/":
-            return self._send({"version": {"number": "8.15.0", "distribution": "elasticsearch"}})
+            self._send({"version": {"number": "8.15.0", "distribution": "elasticsearch"}})
+            return
         if u.path == "/_cat/indices":
-            return self._send([{"index": "logs-1", "docs.count": "25"}, {"index": ".security", "docs.count": "3"}])
+            self._send([{"index": "logs-1", "docs.count": "25"}, {"index": ".security", "docs.count": "3"}])
+            return
         self._send({"error": "nope"}, 404)
 
     def do_POST(self):
@@ -104,10 +106,11 @@ class Es(BaseHTTPRequestHandler):
             hits = self.match(b.get("query") or {})
             Es.state = {"hits": hits, "pos": 0, "size": b.get("size", 10)}
             assert parse_qs(u.query).get("scroll") == ["2m"]
-            return self.page()
-        if u.path == "/_search/scroll":
-            return self.page()
-        self._send({}, 404)
+            self.page()
+        elif u.path == "/_search/scroll":
+            self.page()
+        else:
+            self._send({}, 404)
 
     def do_DELETE(self):
         Es.seen.append(("DELETE", self.path, self._body()))

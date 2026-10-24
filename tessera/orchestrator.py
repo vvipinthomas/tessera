@@ -9,13 +9,17 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from croniter import croniter
 
-from .platform import Platform
+from .errors import UserError
 from .store import now, parse_ts
 from .warehouse import IDENT, QueryError, split_fqn
+
+if TYPE_CHECKING:
+    from .platform import Platform
 
 log = logging.getLogger("tessera.orchestrator")
 
@@ -33,7 +37,7 @@ STEP_TYPES = {
 ACTIVE = ("queued", "running")
 
 
-class PipelineError(Exception):
+class PipelineError(UserError):
     pass
 
 

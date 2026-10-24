@@ -67,7 +67,8 @@ def test_notebooks(admin, app):
     assert admin.put(f"/api/notebooks/{nb['id']}", json={"cells": [{"type": "python", "source": "import os"}]}).status_code == 400
     other = add_user(admin, app, "nb2@acme.ca", "analyst")
     assert other.get(f"/api/notebooks/{nb['id']}").status_code == 200
-    assert other.delete(f"/api/notebooks/{nb['id']}").status_code == 403
+    r = other.delete(f"/api/notebooks/{nb['id']}")
+    assert r.status_code == 403
 
 
 def test_glossary_governance_and_search(sample_env):

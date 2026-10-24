@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tessera"
-version = "1.7.1"
+version = "1.7.2"
 description = "Open-source, self-hosted data platform: connectors and streaming, pipelines, data quality, privacy, semantic models, dashboards, executive briefs, AI agents and an MCP server."
 readme = "README.md"
 license = "Apache-2.0"

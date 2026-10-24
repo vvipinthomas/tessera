@@ -188,172 +188,171 @@ def main():
     data = tempfile.mkdtemp()
     port = free_port()
     env = {**os.environ, "TESSERA_DATA_DIR": data, "PYTHONPATH": str(ROOT)}
-    logf = open(Path(data) / "server.log", "w+")
-    srv = subprocess.Popen([sys.executable, "-m", "tessera", "serve", "--port", str(port)], env=env, stdout=logf, stderr=subprocess.STDOUT, text=True)
-    base = f"http://127.0.0.1:{port}"
-    problems = []
-    try:
-        for _ in range(100):
-            try:
-                socket.create_connection(("127.0.0.1", port), 0.2).close()
-                break
-            except OSError:
-                time.sleep(0.1)
-        code = (Path(data) / "setup-code.txt").read_text().strip()
-        with sync_playwright() as p:
-            b = p.chromium.launch(executable_path=os.environ.get("CHROMIUM", None) or None)
-            for scheme, vp in [("light", {"width": 1360, "height": 900}), ("dark", {"width": 390, "height": 844})]:
-                ctx = b.new_context(viewport=vp, color_scheme=scheme)
-                pg = ctx.new_page()
-                pg.on("console", lambda m: m.type == "error" and problems.append(f"console: {m.text}"))
-                pg.on("pageerror", lambda e: problems.append(f"pageerror: {e}"))
-                pg.on("requestfailed", lambda r: problems.append(f"requestfailed: {r.url}"))
-                pg.on("response", lambda r: r.status >= 500 and problems.append(f"HTTP {r.status}: {r.url}"))
+    with open(Path(data) / "server.log", "w+") as logf:  # closed on every path, even if the test crashes
+        srv = subprocess.Popen([sys.executable, "-m", "tessera", "serve", "--port", str(port)], env=env, stdout=logf, stderr=subprocess.STDOUT, text=True)
+        base = f"http://127.0.0.1:{port}"
+        problems = []
+        try:
+            for _ in range(100):
+                try:
+                    socket.create_connection(("127.0.0.1", port), 0.2).close()
+                    break
+                except OSError:
+                    time.sleep(0.1)
+            code = (Path(data) / "setup-code.txt").read_text().strip()
+            with sync_playwright() as p:
+                b = p.chromium.launch(executable_path=os.environ.get("CHROMIUM", None) or None)
+                for scheme, vp in [("light", {"width": 1360, "height": 900}), ("dark", {"width": 390, "height": 844})]:
+                    ctx = b.new_context(viewport=vp, color_scheme=scheme)
+                    pg = ctx.new_page()
+                    pg.on("console", lambda m: m.type == "error" and problems.append(f"console: {m.text}"))
+                    pg.on("pageerror", lambda e: problems.append(f"pageerror: {e}"))
+                    pg.on("requestfailed", lambda r: problems.append(f"requestfailed: {r.url}"))
+                    pg.on("response", lambda r: r.status >= 500 and problems.append(f"HTTP {r.status}: {r.url}"))
 
-                def shot(name):
-                    if shots:
-                        pg.screenshot(path=str(shots / f"{scheme}-{name}.png"), full_page=True)
+                    def shot(name):
+                        if shots:
+                            pg.screenshot(path=str(shots / f"{scheme}-{name}.png"), full_page=True)
 
-                pg.goto(base + "/")
-                pg.wait_for_selector("#conn-list div")
-                shot("landing")
-                pg.goto(base + "/app")
-                if scheme == "light":
-                    pg.wait_for_selector("#su-code")
-                    shot("setup")
-                    pg.fill("#su-code", code)
-                    pg.fill("#su-name", "Vipin Thomas")
-                    pg.fill("#su-email", "admin@acme.ca")
-                    pg.fill("#su-pw", PW)
-                    pg.click("button[type=submit]")
-                else:
-                    pg.wait_for_selector("#li-email")
-                    pg.fill("#li-email", "admin@acme.ca")
-                    pg.fill("#li-pw", PW)
-                    pg.click("button[type=submit]")
-                pg.wait_for_selector("text=AI readiness", timeout=60000)
-                pg.wait_for_timeout(300)
-                shot("overview")
-                routes = [("catalog", "Datasets"), ("catalog/3", "Readiness"), ("catalog/3/columns", "Masking"), ("catalog/3/preview", "First"),
-                          ("catalog/3/profile", "Distinct"), ("catalog/3/quality", "Quality rules"), ("catalog/3/lineage", "Upstream"),
-                          ("connections", "Connector catalog"), ("connections/1", "Copy many tables"), ("connections/app", "Salesforce"), ("connections/app/stripe", "Save and test"),
-                          ("catalog/3/changes", "schema changes"), ("connections/new", "New connection"),
-                          ("pipelines", "Retail daily load"), ("pipelines/1", "Steps"), ("pipelines/1/edit", "Edit pipeline"), ("pipelines/run/2", "Log"),
-                          ("sql", "Run"), ("dashboards", "Sales overview"), ("dashboards/1", "Revenue by month"), ("agents", "Ask your data"),
-                          ("admin/users", "Add user"), ("admin/tokens", "Create token"), ("admin/sso", "OpenID Connect"), ("admin/ai", "Add provider"), ("admin/audit", "audit"),
-                          ("explore", "Measures"), ("explore/1", "Compare with previous period"), ("reports", "Category performance"), ("reports/1", "Excel"),
-                          ("models", "Semantic models"), ("models/1/edit", "Measures"), ("glossary", "Refund rate"), ("notebooks", "Refund investigation"),
-                          ("notebooks/1", "Run all"), ("transforms", "Visual transforms"), ("monitor", "Monitoring hub"), ("alerts", "Refund rate above 8%"),
-                          ("admin/security", "User attributes"), ("admin/email", "SMTP host"), ("admin/deploy", "Download bundle"),
-                          ("admin/mcp", "Model Context Protocol server"), ("admin/provisioning", "SCIM 2.0 provisioning"), ("admin/ops", "Active sessions"),
-                          ("workspaces", "General"), ("workspaces/1", "Members"), ("brief/1", "full-year forecast"),
-                          ("streams", "Store checkouts"), ("streams/1", "Throughput"), ("streams/new", "Create and start"),
-                          ("admin/integrations", "OpenLineage")]
-                for r, text in routes:
-                    pg.goto(f"{base}/app#/{r}")
-                    try:
-                        pg.wait_for_selector(f"#main >> text={text}", timeout=15000)
-                    except Exception:
-                        problems.append(f"[{scheme}] route {r}: did not show '{text}'")
-                        if os.environ.get("SMOKE_DEBUG") and not getattr(main, "_dumped", False):
-                            main._dumped = True
-                            problems.append(subprocess.run(["py-spy", "dump", "--pid", str(srv.pid)], capture_output=True, text=True).stdout)
-                    pg.wait_for_timeout(500 if r.startswith(("dashboards/", "explore", "transforms", "reports/", "brief/")) else 120)
-                    if scheme == "light" or r in ("catalog/3", "dashboards/1", "pipelines/1", "sql", "explore/1", "monitor", "brief/1"):
-                        shot(r.replace("/", "_"))
-                    bad = pg.locator(".notice.bad").all_text_contents()
-                    if bad:
-                        problems.append(f"[{scheme}] route {r}: error notice {bad}")
-                    if pg.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1") and r not in ("pipelines/1", "pipelines/run/2"):
-                        problems.append(f"[{scheme}] route {r}: page scrolls horizontally")
-                if scheme == "light":
-                    pg.goto(f"{base}/app#/sql")
-                    pg.wait_for_selector("#sql-editor")
-                    pg.fill("#sql-editor", "select province, count(*) n from serving.orders_enriched group by 1 order by 2 desc")
-                    pg.click("text=Run  (Ctrl+Enter)")
-                    pg.wait_for_selector("#viz-type")
-                    pg.select_option("#viz-type", "bar")
-                    pg.wait_for_selector("svg.chart")
-                    shot("sql_chart")
-                    # bulk copy: pick every file of the demo connection and copy them in one pipeline
-                    pg.goto(f"{base}/app#/connections/1")
-                    pg.click("text=Choose tables")
-                    pg.wait_for_selector(".objgrid input")
-                    pg.check("input[aria-label='Select all']")
-                    pg.click("text=Copy selected")
-                    pg.wait_for_selector("text=Open the pipeline", timeout=15000)
-                    shot("bulk_copy")
-                    pg.goto(f"{base}/app#/catalog/3/quality")
-                    pg.click("text=Run checks")
-                    pg.wait_for_selector("text=Score", timeout=15000)
-                    # interactive dashboard: cross-filter by clicking a province bar, then reset
-                    pg.goto(f"{base}/app#/dashboards/1")
-                    pg.wait_for_selector("#main svg.chart rect.pickable", timeout=20000)
-                    pg.locator("#main svg.chart rect.pickable").first.click()
-                    pg.wait_for_selector(".crosschip", timeout=10000)
-                    pg.wait_for_timeout(600)
-                    shot("dashboard_crossfilter")
-                    pg.click("text=Reset filters")
+                    pg.goto(base + "/")
+                    pg.wait_for_selector("#conn-list div")
+                    shot("landing")
+                    pg.goto(base + "/app")
+                    if scheme == "light":
+                        pg.wait_for_selector("#su-code")
+                        shot("setup")
+                        pg.fill("#su-code", code)
+                        pg.fill("#su-name", "Vipin Thomas")
+                        pg.fill("#su-email", "admin@acme.ca")
+                        pg.fill("#su-pw", PW)
+                        pg.click("button[type=submit]")
+                    else:
+                        pg.wait_for_selector("#li-email")
+                        pg.fill("#li-email", "admin@acme.ca")
+                        pg.fill("#li-pw", PW)
+                        pg.click("button[type=submit]")
+                    pg.wait_for_selector("text=AI readiness", timeout=60000)
                     pg.wait_for_timeout(300)
-                    if pg.locator(".crosschip").count():
-                        problems.append("cross-filter chip did not clear")
-                    # AI analysis: insights panel, explain a change, deep dive
-                    pg.click("text=✦ Insights")
-                    pg.wait_for_selector(".sidepanel .fact", timeout=30000)
-                    pg.wait_for_timeout(300)
-                    shot("dashboard_insights")
-                    pg.locator(".sidepanel >> text=Explain this change →").first.click()
-                    pg.wait_for_selector("dialog .wfrow", timeout=30000)
-                    shot("explain_change")
-                    pg.keyboard.press("Escape")
-                    pg.locator(".tilemenu summary").nth(4).click()
-                    pg.locator(".tilemenu[open] >> text=Deep dive").click()
-                    pg.wait_for_selector("dialog .dnode select", timeout=30000)
-                    pg.locator("dialog .dnode select").first.select_option("@high")
-                    pg.wait_for_selector("dialog .dcol:nth-child(3) .dnode", timeout=30000)
-                    shot("deep_dive")
-                    pg.keyboard.press("Escape")
-                    # explore: forecast and anomalies on a monthly line
-                    pg.goto(f"{base}/app#/explore/1")
-                    pg.wait_for_selector("#f-dimensions-order_date")
-                    pg.check("#f-dimensions-order_date")
-                    pg.check("#ex-forecast")
-                    pg.check("#ex-anom")
-                    pg.wait_for_selector("#main svg.chart path[stroke-dasharray]", timeout=15000)
-                    shot("explore_forecast")
-                    # explore: add a dimension, switch visual
-                    pg.goto(f"{base}/app#/explore/1")
-                    pg.reload()
-                    pg.wait_for_selector("#f-dimensions-province")
-                    pg.check("#f-dimensions-province")
-                    pg.wait_for_selector("#main svg.chart rect", timeout=10000)
-                    pg.click(".seg >> text=Donut")
-                    pg.wait_for_selector(".donutwrap", timeout=10000)
-                    shot("explore_donut")
-                    # command palette
-                    pg.keyboard.press("Control+k")
-                    pg.fill("#palette-q", "refund")
-                    pg.wait_for_selector(".palette-item >> text=Refund rate", timeout=10000)
-                    shot("palette")
-                    pg.keyboard.press("Escape")
-                    # notifications bell
-                    pg.click("#bell")
-                    pg.wait_for_selector("#notif-panel")
-                    pg.keyboard.press("Escape")
-                    pg.goto(f"{base}/app#/pipelines/1")
-                    pg.wait_for_selector("text=Run now")
-                    pg.click("text=Run now")
-                    pg.wait_for_selector("#main >> text=Run success", timeout=30000)
-                    shot("run_live")
-                ctx.close()
-            features(b, base, shots, problems)
-            b.close()
-    finally:
-        srv.terminate()
-        srv.wait(timeout=10)
-        logf.seek(0)
-        out = logf.read()
-        logf.close()
+                    shot("overview")
+                    routes = [("catalog", "Datasets"), ("catalog/3", "Readiness"), ("catalog/3/columns", "Masking"), ("catalog/3/preview", "First"),
+                              ("catalog/3/profile", "Distinct"), ("catalog/3/quality", "Quality rules"), ("catalog/3/lineage", "Upstream"),
+                              ("connections", "Connector catalog"), ("connections/1", "Copy many tables"), ("connections/app", "Salesforce"), ("connections/app/stripe", "Save and test"),
+                              ("catalog/3/changes", "schema changes"), ("connections/new", "New connection"),
+                              ("pipelines", "Retail daily load"), ("pipelines/1", "Steps"), ("pipelines/1/edit", "Edit pipeline"), ("pipelines/run/2", "Log"),
+                              ("sql", "Run"), ("dashboards", "Sales overview"), ("dashboards/1", "Revenue by month"), ("agents", "Ask your data"),
+                              ("admin/users", "Add user"), ("admin/tokens", "Create token"), ("admin/sso", "OpenID Connect"), ("admin/ai", "Add provider"), ("admin/audit", "audit"),
+                              ("explore", "Measures"), ("explore/1", "Compare with previous period"), ("reports", "Category performance"), ("reports/1", "Excel"),
+                              ("models", "Semantic models"), ("models/1/edit", "Measures"), ("glossary", "Refund rate"), ("notebooks", "Refund investigation"),
+                              ("notebooks/1", "Run all"), ("transforms", "Visual transforms"), ("monitor", "Monitoring hub"), ("alerts", "Refund rate above 8%"),
+                              ("admin/security", "User attributes"), ("admin/email", "SMTP host"), ("admin/deploy", "Download bundle"),
+                              ("admin/mcp", "Model Context Protocol server"), ("admin/provisioning", "SCIM 2.0 provisioning"), ("admin/ops", "Active sessions"),
+                              ("workspaces", "General"), ("workspaces/1", "Members"), ("brief/1", "full-year forecast"),
+                              ("streams", "Store checkouts"), ("streams/1", "Throughput"), ("streams/new", "Create and start"),
+                              ("admin/integrations", "OpenLineage")]
+                    for r, text in routes:
+                        pg.goto(f"{base}/app#/{r}")
+                        try:
+                            pg.wait_for_selector(f"#main >> text={text}", timeout=15000)
+                        except Exception:
+                            problems.append(f"[{scheme}] route {r}: did not show '{text}'")
+                            if os.environ.get("SMOKE_DEBUG") and not getattr(main, "_dumped", False):
+                                main._dumped = True
+                                problems.append(subprocess.run(["py-spy", "dump", "--pid", str(srv.pid)], capture_output=True, text=True).stdout)
+                        pg.wait_for_timeout(500 if r.startswith(("dashboards/", "explore", "transforms", "reports/", "brief/")) else 120)
+                        if scheme == "light" or r in ("catalog/3", "dashboards/1", "pipelines/1", "sql", "explore/1", "monitor", "brief/1"):
+                            shot(r.replace("/", "_"))
+                        bad = pg.locator(".notice.bad").all_text_contents()
+                        if bad:
+                            problems.append(f"[{scheme}] route {r}: error notice {bad}")
+                        if pg.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1") and r not in ("pipelines/1", "pipelines/run/2"):
+                            problems.append(f"[{scheme}] route {r}: page scrolls horizontally")
+                    if scheme == "light":
+                        pg.goto(f"{base}/app#/sql")
+                        pg.wait_for_selector("#sql-editor")
+                        pg.fill("#sql-editor", "select province, count(*) n from serving.orders_enriched group by 1 order by 2 desc")
+                        pg.click("text=Run  (Ctrl+Enter)")
+                        pg.wait_for_selector("#viz-type")
+                        pg.select_option("#viz-type", "bar")
+                        pg.wait_for_selector("svg.chart")
+                        shot("sql_chart")
+                        # bulk copy: pick every file of the demo connection and copy them in one pipeline
+                        pg.goto(f"{base}/app#/connections/1")
+                        pg.click("text=Choose tables")
+                        pg.wait_for_selector(".objgrid input")
+                        pg.check("input[aria-label='Select all']")
+                        pg.click("text=Copy selected")
+                        pg.wait_for_selector("text=Open the pipeline", timeout=15000)
+                        shot("bulk_copy")
+                        pg.goto(f"{base}/app#/catalog/3/quality")
+                        pg.click("text=Run checks")
+                        pg.wait_for_selector("text=Score", timeout=15000)
+                        # interactive dashboard: cross-filter by clicking a province bar, then reset
+                        pg.goto(f"{base}/app#/dashboards/1")
+                        pg.wait_for_selector("#main svg.chart rect.pickable", timeout=20000)
+                        pg.locator("#main svg.chart rect.pickable").first.click()
+                        pg.wait_for_selector(".crosschip", timeout=10000)
+                        pg.wait_for_timeout(600)
+                        shot("dashboard_crossfilter")
+                        pg.click("text=Reset filters")
+                        pg.wait_for_timeout(300)
+                        if pg.locator(".crosschip").count():
+                            problems.append("cross-filter chip did not clear")
+                        # AI analysis: insights panel, explain a change, deep dive
+                        pg.click("text=✦ Insights")
+                        pg.wait_for_selector(".sidepanel .fact", timeout=30000)
+                        pg.wait_for_timeout(300)
+                        shot("dashboard_insights")
+                        pg.locator(".sidepanel >> text=Explain this change →").first.click()
+                        pg.wait_for_selector("dialog .wfrow", timeout=30000)
+                        shot("explain_change")
+                        pg.keyboard.press("Escape")
+                        pg.locator(".tilemenu summary").nth(4).click()
+                        pg.locator(".tilemenu[open] >> text=Deep dive").click()
+                        pg.wait_for_selector("dialog .dnode select", timeout=30000)
+                        pg.locator("dialog .dnode select").first.select_option("@high")
+                        pg.wait_for_selector("dialog .dcol:nth-child(3) .dnode", timeout=30000)
+                        shot("deep_dive")
+                        pg.keyboard.press("Escape")
+                        # explore: forecast and anomalies on a monthly line
+                        pg.goto(f"{base}/app#/explore/1")
+                        pg.wait_for_selector("#f-dimensions-order_date")
+                        pg.check("#f-dimensions-order_date")
+                        pg.check("#ex-forecast")
+                        pg.check("#ex-anom")
+                        pg.wait_for_selector("#main svg.chart path[stroke-dasharray]", timeout=15000)
+                        shot("explore_forecast")
+                        # explore: add a dimension, switch visual
+                        pg.goto(f"{base}/app#/explore/1")
+                        pg.reload()
+                        pg.wait_for_selector("#f-dimensions-province")
+                        pg.check("#f-dimensions-province")
+                        pg.wait_for_selector("#main svg.chart rect", timeout=10000)
+                        pg.click(".seg >> text=Donut")
+                        pg.wait_for_selector(".donutwrap", timeout=10000)
+                        shot("explore_donut")
+                        # command palette
+                        pg.keyboard.press("Control+k")
+                        pg.fill("#palette-q", "refund")
+                        pg.wait_for_selector(".palette-item >> text=Refund rate", timeout=10000)
+                        shot("palette")
+                        pg.keyboard.press("Escape")
+                        # notifications bell
+                        pg.click("#bell")
+                        pg.wait_for_selector("#notif-panel")
+                        pg.keyboard.press("Escape")
+                        pg.goto(f"{base}/app#/pipelines/1")
+                        pg.wait_for_selector("text=Run now")
+                        pg.click("text=Run now")
+                        pg.wait_for_selector("#main >> text=Run success", timeout=30000)
+                        shot("run_live")
+                    ctx.close()
+                features(b, base, shots, problems)
+                b.close()
+        finally:
+            srv.terminate()
+            srv.wait(timeout=10)
+            logf.seek(0)
+            out = logf.read()
         if "Traceback" in out:
             problems.append("server traceback:\n" + out[-3000:])
     if problems:

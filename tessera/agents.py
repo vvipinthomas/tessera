@@ -16,6 +16,7 @@ from typing import Any, Callable
 import httpx
 
 from . import pii, quality
+from .errors import UserError, public_message
 from .orchestrator import PipelineError, validate
 from .platform import NotFound, Platform
 from .security import has_role, restricted
@@ -32,7 +33,7 @@ PROVIDER_KINDS = {
 }
 
 
-class AgentError(Exception):
+class AgentError(UserError):
     pass
 
 
@@ -636,7 +637,7 @@ def run_tool(ctx: Ctx, name: str, args: dict, allowed: set[str], max_chars: int 
             s = s[:max_chars] + "…(truncated)"
         return s, True
     except (QueryError, NotFound, KeyError, ValueError) as e:
-        return json.dumps({"error": str(e).strip("'")}), False
+        return json.dumps({"error": public_message(e, also=(KeyError, ValueError))}), False
 
 
 def chat(platform: Platform, provider: Provider, user: dict, agent: str, history: list[dict], message: str,

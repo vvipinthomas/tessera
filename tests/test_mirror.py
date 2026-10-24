@@ -93,8 +93,10 @@ def test_mirror_follows_inserts_updates_deletes_and_truncates(admin, pgdb):
     assert status["changes"] >= 9 and status["lag_bytes"] is not None and status["connection"] == "pg"
 
     # the connection cannot be deleted while it is mirrored, and stopping the mirror drops the slot
-    assert admin.delete(f"/api/connections/{c['id']}").status_code == 409
-    assert admin.delete(f"/api/mirrors/{m['id']}").json()["ok"]
+    r = admin.delete(f"/api/connections/{c['id']}")
+    assert r.status_code == 409
+    r = admin.delete(f"/api/mirrors/{m['id']}")
+    assert r.json()["ok"]
     assert con.execute("select count(*) from pg_replication_slots where slot_name=%s", (mirror.slot_name(m["id"]),)).fetchone()[0] == 0
 
 
