@@ -358,6 +358,9 @@ def main():
     if problems:
         print("UI SMOKE FAILED")
         print("\n".join(problems))
+        if os.environ.get("GITHUB_ACTIONS"):  # also as annotations, readable on the run page without opening the log
+            for p in problems[:10]:
+                print("::error title=UI smoke::" + p.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")[:2000])
         sys.exit(1)
     print("UI smoke passed: landing, setup, sign-in and %d routes in light desktop and dark mobile, plus SQL chart, cross-filtering, insights, explain-change, deep dive, forecast, plain-English questions, every visual, the dashboard designer, sharing and embedding, connector forms, the tour and the demo switch, Explore, search palette, notifications, quality run and live pipeline run." % len(routes))
 
