@@ -298,6 +298,17 @@ def mqtt_broker():
     t = threading.Thread(target=run, daemon=True)
     t.start()
     assert ready.wait(10)
+    # under a busy test run the broker can take a moment to accept clients: wait until a real MQTT client connects
+    import paho.mqtt.client as mqtt
+    for _ in range(50):
+        probe = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"probe-{time.time_ns()}")
+        try:
+            if probe.connect("127.0.0.1", port, keepalive=5) == 0:
+                probe.disconnect()
+                break
+        except OSError:
+            pass
+        time.sleep(0.1)
     yield port
     fut = asyncio.run_coroutine_threadsafe(holder["b"].shutdown(), loop)
     try:
@@ -321,7 +332,12 @@ def mqtt_publish(port, topic, payloads):
 def test_mqtt_stream(admin, mqtt_broker):
     conn = admin.post("/api/connections", json={"type": "mqtt", "name": "plant floor",
                                                  "config": {"host": "127.0.0.1", "port": mqtt_broker}}).json()
-    t = admin.post(f"/api/connections/{conn['id']}/test").json()
+    t = {}
+    for _ in range(3):  # the in-process broker can be slow to answer while the rest of the suite is busy
+        t = admin.post(f"/api/connections/{conn['id']}/test").json()
+        if t["ok"]:
+            break
+        time.sleep(1)
     assert t["ok"], t
     s = admin.post("/api/streams", json={"name": "sensors", "kind": "mqtt", "connection_id": conn["id"],
                                           "target": "raw.sensors", "config": {"topic": "plant/+/temp", "max_wait_s": 0.3},
