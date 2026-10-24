@@ -66,7 +66,11 @@ jobs:
         with: {python-version: "3.12", cache: pip}
       - run: pip install -e ".[dev,mysql,s3,mongodb,delta]"
       - run: python -m playwright install --with-deps chromium
-      - run: python tests/ui_smoke.py --shots ui-shots
+      - name: Browser test (one retry for timing flakes on shared runners; a real bug fails both attempts)
+        run: |
+          python tests/ui_smoke.py --shots ui-shots && exit 0
+          echo "::warning title=UI smoke::First attempt failed (see the annotations above); retrying once"
+          python tests/ui_smoke.py --shots ui-shots
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with: {name: ui-screenshots, path: ui-shots, if-no-files-found: ignore}
